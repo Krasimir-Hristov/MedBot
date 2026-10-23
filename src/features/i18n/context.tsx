@@ -16,7 +16,14 @@ const translationsMap: Record<Locale, TranslationDictionary> = {
   el: elTranslations,
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
+// Безопасна стойност по подразбиране (Fallback), предотвратяваща Runtime crash
+const defaultContextValue: LanguageContextType = {
+  locale: 'bg',
+  setLocale: () => {},
+  t: bgTranslations,
+}
+
+const LanguageContext = createContext<LanguageContextType>(defaultContextValue)
 
 const LOCALE_COOKIE_KEY = 'medbot_locale'
 
@@ -29,7 +36,6 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({
   children,
   initialLocale = 'bg',
 }) => {
-  // Използваме lazy initializer за безопасно четене от localStorage при първо зареждане в браузъра
   const [locale, setLocaleState] = useState<Locale>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -56,7 +62,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({
     }
   }
 
-  const t = translationsMap[locale]
+  const t = translationsMap[locale] ?? bgTranslations
 
   return (
     <LanguageContext.Provider value={{ locale, setLocale, t }}>
@@ -67,8 +73,5 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({
 
 export const useTranslation = (): LanguageContextType => {
   const context = useContext(LanguageContext)
-  if (!context) {
-    throw new Error('useTranslation must be used within a LanguageProvider')
-  }
-  return context
+  return context ?? defaultContextValue
 }
