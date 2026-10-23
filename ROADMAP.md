@@ -36,17 +36,25 @@ MedScan RAG е специализирана двуезична медицинс�
 
 ---
 
-### ⏳ СТЪПКА 1: Auth с ПИН и Сервиране на документи (Следваща стъпка)
-- [ ] **Начален екран `/` с красива форма за въвеждане на ПИН:**
-  - Валидация на ПИН кода на клиентско/сървърно ниво (без `middleware.ts`).
+### ✅ ЗАВЪРШЕНА СТЪПКА 1: Auth с ПИН и Сервиране на документи
+- [x] **Начален екран `/` с форма за въвеждане на ПИН:**
+  - Изграден с `jose` JWT сесии, защитен HttpOnly Cookie и Server Actions.
+  - Constant-time валидация на ПИН кодовете срещу brute-force и timing attacks.
+  - Numpad с едри бутони за възрастни/пациенти и мобилни телефони.
   - Пренасочване според въведения код:
     - `ADMIN_PIN` ➡️ `/admin`
     - `DOCTOR_PIN` ➡️ `/doctor`
     - `PATIENT_PIN` ➡️ `/patient`
-  - Записване на безопасна сесийна бисквитка (cookie) за ролята.
-- [ ] **API маршрут за преглед на документи (`src/app/api/doc/[id]/route.ts`):**
-  - Четене на `file_base64` и `mime_type` от `medical_documents` в Neon.
-  - Декодиране и връщане на реално бинарно изображение (`Content-Type: image/jpeg`) с кеширащи хедъри (`Cache-Control`), така че документите да се отварят на `/api/doc/1`, `/api/doc/2` и т.н.
+- [x] **Edge Proxy (`src/proxy.ts`):**
+  - Next.js 16 Proxy слой (без deprecated `middleware.ts`).
+  - Header scrubbing за премахване на инжектирани `x-*` хедъри (защита от CVE-2025-29927).
+  - Защита на маршрутите `/admin`, `/doctor`, `/patient` и `/api/doc`.
+- [x] **API маршрут за преглед на документи (`src/app/api/doc/[id]/route.ts`):**
+  - DAL слой (`src/features/documents/dal.ts`) с изолирана заявка само за бинарните данни.
+  - Четене на `fileBase64` и `mimeType` от Neon PostgreSQL.
+  - Декодиране и връщане на бинарно изображение с кеширане (`Cache-Control: private, max-age=86400`).
+  - Двойна защита на оторизацията (Defense in Depth).
+- [x] Пълна съвместимост: `npm run build` и `npm run lint` преминават с 0 грешки и 0 предупреждения.
 
 ---
 

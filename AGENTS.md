@@ -85,9 +85,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - [x] **Инициализация:** Инсталиран пълен тек стек (Next.js 16, Tailwind v4, Drizzle, Neon, OpenRouter, Zod).
 - [x] **База данни:** Свързан Neon PostgreSQL, активиран `pgvector`, приложена Drizzle схема с `medical_documents` и `doctor_notes`.
 - [x] **AI & Конфигурация:** Създаден единствен [.env](file:///d:/myProjects/medbot/.env) с актуалните най-мощни и икономични модели, създаден OpenRouter клиент [src/lib/openrouter.ts](file:///d:/myProjects/medbot/src/lib/openrouter.ts).
-- [ ] **СТЪПКА 1 (В процес):**
-  - Начален екран `/` с форма за ПИН код и пренасочване към `/admin`, `/doctor`, `/patient`.
-  - Маршрут `src/app/api/doc/[id]/route.ts` за директно отваряне на изображенията на документите.
+- [x] **СТЪПКА 1 (Завършена):**
+  - Начален екран `/` с форма за ПИН код, `jose` JWT криптирана сесия и пренасочване към `/admin`, `/doctor`, `/patient`.
+  - Next.js 16 `src/proxy.ts` за филтриране на заглавни части (Header scrubbing за CVE-2025-29927) и защита на защитените маршрути.
+  - DAL слой и маршрут `src/app/api/doc/[id]/route.ts` за директно отваряне на сканираните документи с двоен слой защита.
 - [ ] **СТЪПКА 2:** Админ дашборд `/admin` за компресия, OCR анализ и запис на документи.
 - [ ] **СТЪПКА 3:** Докторски портал `/doctor` (Split-Screen / Drawer, RAG чат с линкове към документи).
 - [ ] **СТЪПКА 4:** Пациентски портал `/patient` и лекарски бележки.
