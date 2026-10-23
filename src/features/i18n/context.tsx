@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useSyncExternalStore } from 'react'
+import React, { createContext, useContext, useEffect, useSyncExternalStore } from 'react'
 import { Locale, TranslationDictionary } from './types'
 import { bgTranslations } from './locales/bg'
 import { elTranslations } from './locales/el'
@@ -69,17 +69,26 @@ interface LanguageProviderProps {
 }
 
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
-  // useSyncExternalStore е официалният стандарт на React 18/19 за външно браузърно състояние без Hydration Mismatch
   const locale = useSyncExternalStore(
     subscribe,
     getClientSnapshot,
     getServerSnapshot
   )
 
+  // Синхронизираме document.documentElement.lang с избрания език за a11y и SEO
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = locale
+    }
+  }, [locale])
+
   const setLocale = (newLocale: Locale) => {
     try {
       localStorage.setItem(LOCALE_COOKIE_KEY, newLocale)
       document.cookie = `${LOCALE_COOKIE_KEY}=${newLocale}; path=/; max-age=31536000; SameSite=Lax`
+      if (typeof document !== 'undefined') {
+        document.documentElement.lang = newLocale
+      }
     } catch {
       // Ignore
     }

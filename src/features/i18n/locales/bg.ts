@@ -24,6 +24,7 @@ export const bgTranslations: TranslationDictionary = {
     errorMaxLength: 'ПИН кодът е твърде дълъг.',
     errorFormat: 'ПИН кодът може да съдържа само цифри и букви.',
     errorInvalidPin: 'Грешен ПИН код за достъп. Моля, опитайте отново.',
+    errorRateLimited: 'Твърде много опити за вход. Моля, изчакайте една минута.',
     errorGeneric: 'Възникна грешка при вход. Моля, опитайте по-късно.',
     secureSessionNotice: 'Криптирана сесия с автоматично изтичане',
   },
@@ -54,5 +55,6 @@ export const bgTranslations: TranslationDictionary = {
     welcomeDesc:
       'Успешен вход. В Стъпка 4 тук ще виждате новите препоръки от лекаря на разбираем български език, както и гласовия асистент с едър шрифт.',
     voiceAssistant: 'Гласов въпрос към асистента',
+    voiceAssistantStep: '(Стъпка 4)',
   },
 }

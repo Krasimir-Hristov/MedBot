@@ -1,18 +1,22 @@
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import { UserRole } from '../types'
+import { getSecretKey } from './keys'
 
 /**
- * Безопасно сравнение на стрингове за предотвратяване на timing attacks
+ * Безопасно сравнение на стрингове чрез HMAC digests с фиксирана дължина
+ * и crypto.timingSafeEqual за елиминиране на всякакви timing attacks за дължина или съдържание.
  */
-const safeCompare = (a: string, b: string): boolean => {
-  if (a.length !== b.length) {
+const safeCompare = (input: string, target: string): boolean => {
+  try {
+    const key = Buffer.from(getSecretKey())
+    const hmacInput = createHmac('sha256', key).update(input).digest()
+    const hmacTarget = createHmac('sha256', key).update(target).digest()
+
+    return timingSafeEqual(hmacInput, hmacTarget)
+  } catch (error) {
+    console.error('Error during safe PIN comparison:', error)
     return false
   }
-
-  let result = 0
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  }
-  return result === 0
 }
 
 /**

@@ -48,7 +48,7 @@ const PatientPortalPage: React.FC = () => {
               <Mic className="w-8 h-8" />
             </button>
             <span className="text-xs text-slate-400">
-              {t.patient.voiceAssistant} (Стъпка 4)
+              {t.patient.voiceAssistant} {t.patient.voiceAssistantStep}
             </span>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
+import { getSecretKey } from '@/features/auth/lib/keys'
 
 const SESSION_COOKIE_NAME = 'medbot_session'
 
@@ -10,11 +11,6 @@ const DANGEROUS_HEADER_PREFIXES = [
   'x-middleware-rewrite',
   'x-middleware-next',
 ]
-
-const getSecretKey = (): Uint8Array => {
-  const secret = process.env.SESSION_SECRET || 'medbot_fallback_secret_must_be_set_properly_32b'
-  return new TextEncoder().encode(secret)
-}
 
 /**
  * Валидира ролята от JWT бисквитката директно в Proxy слоя
@@ -33,6 +29,7 @@ const getRoleFromRequest = async (request: NextRequest): Promise<string | null> 
     const role = typeof payload.role === 'string' ? payload.role : null
     return role
   } catch {
+    // Всяка грешка (липсващ ключ, невалиден токен) се третира като липсваща сесия
     return null
   }
 }
@@ -97,11 +94,18 @@ export async function proxy(request: NextRequest) {
   }
 
   // 6. Защита на API маршрутите за документи (/api/doc/*)
+  // Само лекар и администратор имат пълен достъп до сканираните оригинални документи
   if (pathname.startsWith('/api/doc')) {
     if (!role) {
       return NextResponse.json(
         { error: 'Неоторизиран достъп. Моля, въведете ПИН код.' },
         { status: 401 }
+      )
+    }
+    if (role !== 'admin' && role !== 'doctor') {
+      return NextResponse.json(
+        { error: 'Нямате права за достъп до сканираните документи.' },
+        { status: 403 }
       )
     }
   }

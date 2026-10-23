@@ -24,6 +24,7 @@ export interface TranslationDictionary {
     errorMaxLength: string
     errorFormat: string
     errorInvalidPin: string
+    errorRateLimited: string
     errorGeneric: string
     secureSessionNotice: string
   }
@@ -51,5 +52,6 @@ export interface TranslationDictionary {
     welcomeTitle: string
     welcomeDesc: string
     voiceAssistant: string
+    voiceAssistantStep: string
   }
 }

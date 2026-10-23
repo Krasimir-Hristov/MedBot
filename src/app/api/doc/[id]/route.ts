@@ -27,6 +27,14 @@ export const GET = async (
       )
     }
 
+    // Разрешен достъп само за администратор и лекар
+    if (session.role !== 'admin' && session.role !== 'doctor') {
+      return NextResponse.json(
+        { error: 'Нямате права за достъп до оригиналните медицински документи.' },
+        { status: 403 }
+      )
+    }
+
     // 2. Валидация на параметъра ID
     const resolvedParams = await context.params
     const parseResult = ParamSchema.safeParse(resolvedParams)

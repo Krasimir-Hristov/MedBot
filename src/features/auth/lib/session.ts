@@ -1,17 +1,10 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 import { SessionPayload, UserRole } from '../types'
+import { getSecretKey } from './keys'
 
 export const SESSION_COOKIE_NAME = 'medbot_session'
 const SESSION_DURATION_SECONDS = 7 * 24 * 60 * 60 // 7 дни
-
-const getSecretKey = (): Uint8Array => {
-  const secret = process.env.SESSION_SECRET
-  if (!secret || secret.length < 32) {
-    throw new Error('SESSION_SECRET environment variable is missing or shorter than 32 characters.')
-  }
-  return new TextEncoder().encode(secret)
-}
 
 /**
  * Създава подписан JWT токен с ролята на потребителя

@@ -14,7 +14,7 @@ export const elTranslations: TranslationDictionary = {
   auth: {
     pinTitle: 'MedScan RAG',
     pinSubtitle: 'Ασφαλής πρόσβαση στον ογκολογικό φάκελο',
-    pinInputAria: 'Εισάγετε τον κωδικό PIN',
+    pinInputAria: 'Εισάγετε τον κωдικό PIN',
     pinPlaceholder: '••••',
     clear: 'Καθαρισμός',
     deleteAria: 'Διαγραφή τελευταίου ψηφίου',
@@ -24,6 +24,7 @@ export const elTranslations: TranslationDictionary = {
     errorMaxLength: 'Ο κωδικός PIN είναι πολύ μεγάλος.',
     errorFormat: 'Ο κωδικός PIN επιτρέπεται να περιέχει μόνο ψηφία και γράμματα.',
     errorInvalidPin: 'Λανθασμένος κωδικός PIN. Παρακαλώ δοκιμάστε ξανά.',
+    errorRateLimited: 'Πάρα πολλές προσπάθειες σύνδεσης. Παρακαλώ περιμένετε ένα λεπτό.',
     errorGeneric: 'Παρουσιάστηκε σφάλμα κατά τη σύνδεση. Δοκιμάστε αργότερα.',
     secureSessionNotice: 'Κρυπτογραφημένη συνεδρία με αυτόματη λήξη',
   },
@@ -54,5 +55,6 @@ export const elTranslations: TranslationDictionary = {
     welcomeDesc:
       'Επιτυχής είσοδος. Στο Βήμα 4 εδώ θα εμφανίζονται οι οδηγίες του ιατρού καθώς και ο φωνητικός βοηθός με ευανάγνωστη γραμματοσειρά.',
     voiceAssistant: 'Φωνητική ερώτηση στον βοηθό',
+    voiceAssistantStep: '(Βήμα 4)',
   },
 }

@@ -2,6 +2,8 @@ import { JWTPayload } from 'jose'
 
 export type UserRole = 'admin' | 'doctor' | 'patient'
 
+export type AuthErrorCode = 'INVALID_PIN' | 'VALIDATION_ERROR' | 'RATE_LIMITED' | 'SERVER_ERROR'
+
 export interface SessionPayload extends JWTPayload {
   role: UserRole
   createdAt: number
@@ -9,6 +11,7 @@ export interface SessionPayload extends JWTPayload {
 
 export interface AuthResult {
   success: boolean
+  errorCode?: AuthErrorCode
   error?: string
   redirectTo?: string
 }

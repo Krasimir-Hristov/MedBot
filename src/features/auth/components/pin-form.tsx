@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { loginWithPinAction } from '../actions'
 import { Lock, Delete, ArrowRight, ShieldCheck, HeartPulse } from 'lucide-react'
 import { useTranslation, LanguageSwitcher } from '@/features/i18n'
+import { AuthErrorCode } from '../types'
 
 export const PinForm: React.FC = () => {
   const [pin, setPin] = useState('')
@@ -28,6 +29,20 @@ export const PinForm: React.FC = () => {
     setError(null)
   }
 
+  const getErrorMessageByCode = (code?: AuthErrorCode): string => {
+    switch (code) {
+      case 'INVALID_PIN':
+        return t.auth.errorInvalidPin
+      case 'VALIDATION_ERROR':
+        return t.auth.errorFormat
+      case 'RATE_LIMITED':
+        return t.auth.errorRateLimited
+      case 'SERVER_ERROR':
+      default:
+        return t.auth.errorGeneric
+    }
+  }
+
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault()
@@ -45,8 +60,8 @@ export const PinForm: React.FC = () => {
       if (result.success && result.redirectTo) {
         window.location.replace(result.redirectTo)
       } else {
-        // Локализирано съобщение за грешен ПИН
-        setError(result.error ? t.auth.errorInvalidPin : t.auth.errorGeneric)
+        // Превеждаме машинночетимия код на грешка според текущия език
+        setError(getErrorMessageByCode(result.errorCode))
       }
     })
   }

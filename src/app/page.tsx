@@ -1,6 +1,6 @@
 import React from 'react'
 import type { Metadata } from 'next'
-import { PinForm } from '@/features/auth'
+import { PinForm, HomeFooter } from '@/features/auth'
 
 export const metadata: Metadata = {
   title: 'Вход с ПИН | MedScan RAG',
@@ -14,13 +14,10 @@ const HomePage: React.FC = () => {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Контейнер за формата */}
+      {/* Контейнер за формата и футера */}
       <div className="relative z-10 w-full flex flex-col items-center">
         <PinForm />
-
-        <footer className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          <p>© 2026 MedScan RAG • Двуезична медицинска система (BG / EL)</p>
-        </footer>
+        <HomeFooter />
       </div>
     </main>
   )
