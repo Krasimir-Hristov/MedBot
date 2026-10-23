@@ -35,3 +35,22 @@ CREATE TABLE IF NOT EXISTS doctor_notes (
 CREATE INDEX IF NOT EXISTS medical_documents_embedding_hnsw_idx 
 ON medical_documents 
 USING hnsw (embedding vector_cosine_ops);
+
+-- 5. Row Level Security (RLS) setup
+ALTER TABLE medical_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE doctor_notes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS med_docs_owner_policy ON medical_documents;
+CREATE POLICY med_docs_owner_policy ON medical_documents 
+  FOR ALL 
+  TO PUBLIC 
+  USING (true) 
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS doctor_notes_owner_policy ON doctor_notes;
+CREATE POLICY doctor_notes_owner_policy ON doctor_notes 
+  FOR ALL 
+  TO PUBLIC 
+  USING (true) 
+  WITH CHECK (true);
+
