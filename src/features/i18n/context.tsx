@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useSyncExternalStore } from 'react'
 import { Locale, TranslationDictionary } from './types'
 import { bgTranslations } from './locales/bg'
 import { elTranslations } from './locales/el'
@@ -16,7 +16,6 @@ const translationsMap: Record<Locale, TranslationDictionary> = {
   el: elTranslations,
 }
 
-// Безопасна стойност по подразбиране (Fallback), предотвратяваща Runtime crash
 const defaultContextValue: LanguageContextType = {
   locale: 'bg',
   setLocale: () => {},
@@ -27,39 +26,64 @@ const LanguageContext = createContext<LanguageContextType>(defaultContextValue)
 
 const LOCALE_COOKIE_KEY = 'medbot_locale'
 
-interface LanguageProviderProps {
-  children: React.ReactNode
-  initialLocale?: Locale
+// Слушатели за промени в езика в реално време
+const listeners = new Set<() => void>()
+
+const notifyListeners = () => {
+  listeners.forEach((listener) => listener())
 }
 
-export const LanguageProvider: React.FC<LanguageProviderProps> = ({
-  children,
-  initialLocale = 'bg',
-}) => {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(LOCALE_COOKIE_KEY) as Locale | null
-        if (saved === 'bg' || saved === 'el') {
-          return saved
-        }
-      } catch {
-        // Fallback при забрана за достъп до localStorage
-      }
+const subscribe = (callback: () => void) => {
+  listeners.add(callback)
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === LOCALE_COOKIE_KEY) {
+      callback()
     }
-    return initialLocale
-  })
+  }
+  window.addEventListener('storage', handleStorage)
+
+  return () => {
+    listeners.delete(callback)
+    window.removeEventListener('storage', handleStorage)
+  }
+}
+
+const getClientSnapshot = (): Locale => {
+  try {
+    const saved = localStorage.getItem(LOCALE_COOKIE_KEY) as Locale | null
+    if (saved === 'bg' || saved === 'el') {
+      return saved
+    }
+  } catch {
+    // Ignore restricted storage
+  }
+  return 'bg'
+}
+
+const getServerSnapshot = (): Locale => {
+  return 'bg'
+}
+
+interface LanguageProviderProps {
+  children: React.ReactNode
+}
+
+export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
+  // useSyncExternalStore е официалният стандарт на React 18/19 за външно браузърно състояние без Hydration Mismatch
+  const locale = useSyncExternalStore(
+    subscribe,
+    getClientSnapshot,
+    getServerSnapshot
+  )
 
   const setLocale = (newLocale: Locale) => {
-    setLocaleState(newLocale)
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(LOCALE_COOKIE_KEY, newLocale)
-        document.cookie = `${LOCALE_COOKIE_KEY}=${newLocale}; path=/; max-age=31536000; SameSite=Lax`
-      } catch {
-        // Ignore storage errors
-      }
+    try {
+      localStorage.setItem(LOCALE_COOKIE_KEY, newLocale)
+      document.cookie = `${LOCALE_COOKIE_KEY}=${newLocale}; path=/; max-age=31536000; SameSite=Lax`
+    } catch {
+      // Ignore
     }
+    notifyListeners()
   }
 
   const t = translationsMap[locale] ?? bgTranslations

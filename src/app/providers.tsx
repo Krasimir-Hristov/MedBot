@@ -8,5 +8,5 @@ interface ProvidersProps {
 }
 
 export const Providers: React.FC<ProvidersProps> = ({ children }) => {
-  return <LanguageProvider initialLocale="bg">{children}</LanguageProvider>
+  return <LanguageProvider>{children}</LanguageProvider>
 }
