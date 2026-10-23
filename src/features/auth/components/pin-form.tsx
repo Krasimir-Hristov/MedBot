@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { loginWithPinAction } from '../actions'
 import { Lock, Delete, ArrowRight, ShieldCheck, HeartPulse } from 'lucide-react'
 import { useTranslation, LanguageSwitcher } from '@/features/i18n'
@@ -10,7 +9,6 @@ export const PinForm: React.FC = () => {
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const router = useRouter()
   const { t } = useTranslation()
 
   const handleDigitClick = (digit: string) => {
@@ -45,8 +43,7 @@ export const PinForm: React.FC = () => {
 
       const result = await loginWithPinAction(formData)
       if (result.success && result.redirectTo) {
-        router.push(result.redirectTo)
-        router.refresh()
+        window.location.replace(result.redirectTo)
       } else {
         // Локализирано съобщение за грешен ПИН
         setError(result.error ? t.auth.errorInvalidPin : t.auth.errorGeneric)

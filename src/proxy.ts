@@ -4,13 +4,12 @@ import { jwtVerify } from 'jose'
 
 const SESSION_COOKIE_NAME = 'medbot_session'
 
-// Списък с позволени x-* хедъри (всички останали x- се филтрират за сигурност)
-const ALLOWED_X_HEADERS = new Set([
-  'x-forwarded-for',
-  'x-forwarded-proto',
-  'x-forwarded-host',
-  'x-real-ip',
-])
+// Списък със специфични опасни хедъри за филтриране (CVE-2025-29927 защита)
+const DANGEROUS_HEADER_PREFIXES = [
+  'x-middleware-subrequest',
+  'x-middleware-rewrite',
+  'x-middleware-next',
+]
 
 const getSecretKey = (): Uint8Array => {
   const secret = process.env.SESSION_SECRET || 'medbot_fallback_secret_must_be_set_properly_32b'
@@ -44,13 +43,13 @@ const getRoleFromRequest = async (request: NextRequest): Promise<string | null> 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // 1. Изчистване на подозрителни хедъри (CVE-2025-29927 защита)
+  // 1. Изчистване на опасни x-middleware-* хедъри (CVE-2025-29927 защита)
   const requestHeaders = new Headers(request.headers)
   const headerKeysToDelete: string[] = []
 
   requestHeaders.forEach((_, key) => {
     const lowerKey = key.toLowerCase()
-    if (lowerKey.startsWith('x-') && !ALLOWED_X_HEADERS.has(lowerKey)) {
+    if (DANGEROUS_HEADER_PREFIXES.some((prefix) => lowerKey.startsWith(prefix))) {
       headerKeysToDelete.push(key)
     }
   })

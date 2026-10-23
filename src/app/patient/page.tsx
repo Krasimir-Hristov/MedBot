@@ -1,9 +1,9 @@
 'use client'
 
 import React from 'react'
-import { logoutAction } from '@/features/auth'
+import { LogoutButton } from '@/features/auth'
 import { useTranslation, LanguageSwitcher } from '@/features/i18n'
-import { LogOut, HeartHandshake, Mic } from 'lucide-react'
+import { HeartHandshake, Mic } from 'lucide-react'
 
 const PatientPortalPage: React.FC = () => {
   const { t } = useTranslation()
@@ -24,16 +24,7 @@ const PatientPortalPage: React.FC = () => {
         {/* Контроли вдясно: Езиков превключвател + Бутон за изход */}
         <div className="flex items-center gap-3 self-end sm:self-auto">
           <LanguageSwitcher compact />
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              aria-label={t.common.logout}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs sm:text-sm font-medium transition-colors cursor-pointer text-slate-300 hover:text-white border border-slate-700"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>{t.common.logout}</span>
-            </button>
-          </form>
+          <LogoutButton />
         </div>
       </header>
 
