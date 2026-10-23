@@ -4,12 +4,14 @@ import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { loginWithPinAction } from '../actions'
 import { Lock, Delete, ArrowRight, ShieldCheck, HeartPulse } from 'lucide-react'
+import { useTranslation, LanguageSwitcher } from '@/features/i18n'
 
 export const PinForm: React.FC = () => {
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+  const { t } = useTranslation()
 
   const handleDigitClick = (digit: string) => {
     if (pin.length < 10) {
@@ -46,7 +48,8 @@ export const PinForm: React.FC = () => {
         router.push(result.redirectTo)
         router.refresh()
       } else {
-        setError(result.error ?? 'Невалиден ПИН код.')
+        // Локализирано съобщение за грешен ПИН
+        setError(result.error ? t.auth.errorInvalidPin : t.auth.errorGeneric)
       }
     })
   }
@@ -55,16 +58,21 @@ export const PinForm: React.FC = () => {
 
   return (
     <section className="w-full max-w-md mx-auto p-6 sm:p-8 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 transition-all duration-300">
+      {/* Превключвател на езици 🇧🇬 / 🇬🇷 най-отгоре */}
+      <div className="flex justify-end mb-4">
+        <LanguageSwitcher compact={false} />
+      </div>
+
       {/* Лого и Заглавие */}
       <div className="flex flex-col items-center text-center mb-6">
         <div className="w-16 h-16 rounded-2xl bg-linear-to-tr from-cyan-600 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-teal-500/20 mb-3 animate-pulse">
           <HeartPulse className="w-9 h-9" />
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-          MedScan RAG
+          {t.auth.pinTitle}
         </h1>
         <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-          Сигурен достъп до онкологично досие
+          {t.auth.pinSubtitle}
         </p>
       </div>
 
@@ -72,7 +80,7 @@ export const PinForm: React.FC = () => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="relative">
           <label htmlFor="pin-input" className="sr-only">
-            ПИН код за достъп
+            {t.auth.pinInputAria}
           </label>
           <div className="relative flex items-center">
             <input
@@ -85,9 +93,9 @@ export const PinForm: React.FC = () => {
                 setPin(e.target.value)
                 setError(null)
               }}
-              placeholder="••••"
+              placeholder={t.auth.pinPlaceholder}
               disabled={isPending}
-              aria-label="Въведете ПИН код"
+              aria-label={t.auth.pinInputAria}
               className="w-full text-center text-3xl sm:text-4xl tracking-widest font-mono py-3.5 px-12 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border-2 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/20 transition-all"
             />
             <div className="absolute left-4 pointer-events-none text-slate-400">
@@ -98,10 +106,10 @@ export const PinForm: React.FC = () => {
                 type="button"
                 onClick={handleClear}
                 disabled={isPending}
-                aria-label="Изчисти ПИН кода"
+                aria-label={t.auth.clear}
                 className="absolute right-4 text-xs font-semibold uppercase text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
               >
-                Изчисти
+                {t.auth.clear}
               </button>
             )}
           </div>
@@ -111,13 +119,13 @@ export const PinForm: React.FC = () => {
         {error && (
           <div
             role="alert"
-            className="p-3 text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center font-medium animate-shake"
+            className="p-3 text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center font-medium"
           >
             {error}
           </div>
         )}
 
-        {/* Цифрова клавиатура (Numpad) за мобилни устройства */}
+        {/* Цифрова клавиатура (Numpad) */}
         <div className="pt-2 grid grid-cols-3 gap-2 sm:gap-3">
           {numpadDigits.map((digit) => (
             <button
@@ -125,7 +133,7 @@ export const PinForm: React.FC = () => {
               type="button"
               onClick={() => handleDigitClick(digit)}
               disabled={isPending}
-              aria-label={`Цифра ${digit}`}
+              aria-label={`${t.auth.digitAria} ${digit}`}
               className="h-14 sm:h-16 text-2xl font-semibold rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-slate-700 active:scale-95 transition-all flex items-center justify-center text-slate-800 dark:text-slate-100 shadow-xs cursor-pointer disabled:opacity-50"
             >
               {digit}
@@ -135,7 +143,7 @@ export const PinForm: React.FC = () => {
             type="button"
             onClick={handleDelete}
             disabled={isPending || pin.length === 0}
-            aria-label="Изтрий последната цифра"
+            aria-label={t.auth.deleteAria}
             className="h-14 sm:h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-slate-700 active:scale-95 transition-all flex items-center justify-center text-slate-600 dark:text-slate-300 shadow-xs cursor-pointer disabled:opacity-40"
           >
             <Delete className="w-6 h-6" />
@@ -144,7 +152,7 @@ export const PinForm: React.FC = () => {
             type="button"
             onClick={() => handleDigitClick('0')}
             disabled={isPending}
-            aria-label="Цифра 0"
+            aria-label={`${t.auth.digitAria} 0`}
             className="h-14 sm:h-16 text-2xl font-semibold rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-slate-700 active:scale-95 transition-all flex items-center justify-center text-slate-800 dark:text-slate-100 shadow-xs cursor-pointer disabled:opacity-50"
           >
             0
@@ -152,7 +160,7 @@ export const PinForm: React.FC = () => {
           <button
             type="submit"
             disabled={isPending || pin.length === 0}
-            aria-label="Вход в системата"
+            aria-label={t.auth.submitAria}
             className="h-14 sm:h-16 rounded-2xl bg-linear-to-r from-teal-600 to-cyan-600 text-white font-bold hover:opacity-95 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-teal-500/25 cursor-pointer disabled:opacity-40"
           >
             {isPending ? (
@@ -167,7 +175,7 @@ export const PinForm: React.FC = () => {
       {/* Информационна бележка за сигурност */}
       <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-center gap-2 text-xs text-slate-400">
         <ShieldCheck className="w-4 h-4 text-teal-500" />
-        <span>Криптирана сесия с автоматично изтичане</span>
+        <span>{t.auth.secureSessionNotice}</span>
       </div>
     </section>
   )

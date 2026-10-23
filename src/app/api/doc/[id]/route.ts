@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getSession } from '@/features/auth'
+import { getSession } from '@/features/auth/lib/session'
 import { getDocumentBinaryById } from '@/features/documents'
 
 const ParamSchema = z.object({
