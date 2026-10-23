@@ -1,5 +1,6 @@
 'use server'
 
+import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { verifyPinAndGetRole } from './lib/pin'
 import { setSessionCookie, clearSessionCookie } from './lib/session'
@@ -71,4 +72,6 @@ export const logoutAction = async (): Promise<void> => {
   } catch (error) {
     console.error('Logout error:', error)
   }
+  // redirect() се извиква извън try/catch в Next.js
+  redirect('/')
 }
