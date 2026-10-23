@@ -31,26 +31,31 @@ CREATE TABLE IF NOT EXISTS doctor_notes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 4. Create HNSW Cosine Vector Index for fast semantic RAG queries
+-- 4. Create chat_sessions table (Doctor & Patient history with rename/delete)
+CREATE TABLE IF NOT EXISTS chat_sessions (
+  id SERIAL PRIMARY KEY,
+  session_id TEXT NOT NULL UNIQUE,
+  role TEXT NOT NULL, -- 'doctor' | 'patient'
+  title TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 5. Create chat_messages table
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id SERIAL PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES chat_sessions(session_id) ON DELETE CASCADE,
+  role TEXT NOT NULL, -- 'user' | 'assistant'
+  content TEXT NOT NULL,
+  citations JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 6. Create HNSW Cosine Vector Index for fast semantic RAG queries
 CREATE INDEX IF NOT EXISTS medical_documents_embedding_hnsw_idx 
 ON medical_documents 
 USING hnsw (embedding vector_cosine_ops);
 
--- 5. Row Level Security (RLS) setup
-ALTER TABLE medical_documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE doctor_notes ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS med_docs_owner_policy ON medical_documents;
-CREATE POLICY med_docs_owner_policy ON medical_documents 
-  FOR ALL 
-  TO PUBLIC 
-  USING (true) 
-  WITH CHECK (true);
-
-DROP POLICY IF EXISTS doctor_notes_owner_policy ON doctor_notes;
-CREATE POLICY doctor_notes_owner_policy ON doctor_notes 
-  FOR ALL 
-  TO PUBLIC 
-  USING (true) 
-  WITH CHECK (true);
-
+-- Index on session_id for fast chat loading
+CREATE INDEX IF NOT EXISTS chat_messages_session_idx 
+ON chat_messages (session_id);

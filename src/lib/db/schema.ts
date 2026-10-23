@@ -26,6 +26,24 @@ export const doctorNotes = pgTable("doctor_notes", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const chatSessions = pgTable("chat_sessions", {
+  id: serial("id").primaryKey(),
+  sessionId: text("session_id").notNull().unique(),
+  role: text("role").notNull(), // 'doctor' | 'patient'
+  title: text("title").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const chatMessages = pgTable("chat_messages", {
+  id: serial("id").primaryKey(),
+  sessionId: text("session_id").notNull().references(() => chatSessions.sessionId, { onDelete: "cascade" }),
+  role: text("role").notNull(), // 'user' | 'assistant'
+  content: text("content").notNull(),
+  citations: jsonb("citations").$type<Array<{ id: number; title: string }>>().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // Zod Schemas for Validation
 export const insertMedicalDocumentSchema = createInsertSchema(medicalDocuments);
 export const selectMedicalDocumentSchema = createSelectSchema(medicalDocuments);
@@ -33,7 +51,17 @@ export const selectMedicalDocumentSchema = createSelectSchema(medicalDocuments);
 export const insertDoctorNoteSchema = createInsertSchema(doctorNotes);
 export const selectDoctorNoteSchema = createSelectSchema(doctorNotes);
 
+export const insertChatSessionSchema = createInsertSchema(chatSessions);
+export const selectChatSessionSchema = createSelectSchema(chatSessions);
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages);
+export const selectChatMessageSchema = createSelectSchema(chatMessages);
+
 export type MedicalDocument = typeof medicalDocuments.$inferSelect;
 export type NewMedicalDocument = typeof medicalDocuments.$inferInsert;
 export type DoctorNote = typeof doctorNotes.$inferSelect;
 export type NewDoctorNote = typeof doctorNotes.$inferInsert;
+export type ChatSession = typeof chatSessions.$inferSelect;
+export type NewChatSession = typeof chatSessions.$inferInsert;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;
