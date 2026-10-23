@@ -1,5 +1,5 @@
 export * from './types'
 export * from './context'
 export * from './components/language-switcher'
-export * from './locales/bg'
-export * from './locales/el'
+export { default as bgTranslations } from './locales/bg.json'
+export { default as elTranslations } from './locales/el.json'

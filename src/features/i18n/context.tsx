@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useSyncExternalStore } from 'react'
 import { Locale, TranslationDictionary } from './types'
-import { bgTranslations } from './locales/bg'
-import { elTranslations } from './locales/el'
+import bgTranslations from './locales/bg.json'
+import elTranslations from './locales/el.json'
 
 interface LanguageContextType {
   locale: Locale
