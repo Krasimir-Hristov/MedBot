@@ -1,6 +1,5 @@
 import { pgTable, serial, text, timestamp, jsonb, vector } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
 
 export const medicalDocuments = pgTable("medical_documents", {
   id: serial("id").primaryKey(),

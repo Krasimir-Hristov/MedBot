@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 
-const apiKey = process.env.OPENROUTER_API_KEY || "";
+const rawKey = process.env.OPENROUTER_API_KEY?.trim() || "";
+const cleanKey = rawKey === '""' || rawKey === "''" ? "" : rawKey;
+const apiKey = cleanKey || "dummy-build-key";
 const baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 
 export const openrouter = new OpenAI({
