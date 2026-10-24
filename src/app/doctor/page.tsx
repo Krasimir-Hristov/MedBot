@@ -1,67 +1,64 @@
-'use client'
+import React, { Suspense } from 'react'
+import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
+import { getSession } from '@/features/auth/lib/session'
+import { getDocumentsList } from '@/features/documents'
+import { getChatMessages, getDoctorChatSessions } from '@/features/doctor/lib/chat-dal'
+import { getDoctorNotes } from '@/features/doctor/lib/notes-dal'
+import { getDossierSummaryState } from '@/features/dossier-summary/dal'
+import { listGuidelineItems } from '@/features/patient-guidelines/dal'
+import { DoctorPortalShell } from '@/features/doctor'
+import { Loader2 } from 'lucide-react'
 
-import React from 'react'
-import { LogoutButton } from '@/features/auth'
-import { useTranslation, LanguageSwitcher } from '@/features/i18n'
-import { Stethoscope, Clock, Microscope, Scan, Activity } from 'lucide-react'
+export const metadata: Metadata = {
+  title: 'MedBot | Πύλη Ιατρού – Clinical RAG Assistant',
+  description: 'Δίγλωσσος ιατρικός βοηθός RAG και ογκολογικός φάκελος ασθενούς.',
+}
 
-const DoctorPortalPage: React.FC = () => {
-  const { t } = useTranslation()
+const DoctorPortalSkeleton: React.FC = () => (
+  <div className="h-screen w-full flex flex-col bg-slate-50 items-center justify-center text-slate-500">
+    <Loader2 className="w-8 h-8 text-sky-600 animate-spin mb-3" />
+    <p className="text-xs font-mono font-medium">Φόρτωση ογκολογικού φακέλου (MedBot)...</p>
+  </div>
+)
 
-  const quickButtons = [
-    { label: t.doctor.quickPrompts.timeline, icon: Clock, color: 'text-amber-400' },
-    { label: t.doctor.quickPrompts.histology, icon: Microscope, color: 'text-emerald-400' },
-    { label: t.doctor.quickPrompts.imaging, icon: Scan, color: 'text-cyan-400' },
-    { label: t.doctor.quickPrompts.markers, icon: Activity, color: 'text-rose-400' },
-  ]
+const DoctorPortalDataLoader: React.FC = async () => {
+  const session = await getSession()
+  if (!session || (session.role !== 'doctor' && session.role !== 'admin')) {
+    redirect('/')
+  }
+
+  // Паралелно първоначално извличане от DAL слоя
+  const [documents, sessions, notes, summaryState, guidelines] = await Promise.all([
+    getDocumentsList(),
+    getDoctorChatSessions(),
+    getDoctorNotes(),
+    getDossierSummaryState(),
+    listGuidelineItems(),
+  ])
+
+  const initialMessages = sessions[0]
+    ? await getChatMessages(sessions[0].sessionId)
+    : []
 
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100 p-4 sm:p-6 flex flex-col">
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-cyan-500/20 text-cyan-400 rounded-2xl">
-            <Stethoscope className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold">{t.doctor.title}</h1>
-            <p className="text-xs text-slate-400">{t.doctor.subtitle}</p>
-          </div>
-        </div>
+    <DoctorPortalShell
+      initialDocuments={documents}
+      initialSessions={sessions}
+      initialMessages={initialMessages}
+      initialNotes={notes}
+      initialSummary={summaryState.summary}
+      initialStaleness={summaryState.staleness}
+      initialGuidelines={guidelines}
+    />
+  )
+}
 
-        {/* Контроли вдясно: Езиков превключвател + Бутон за изход */}
-        <div className="flex items-center gap-3 self-end sm:self-auto">
-          <LanguageSwitcher compact />
-          <LogoutButton />
-        </div>
-      </header>
-
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="p-8 bg-slate-800/60 border border-slate-700/60 rounded-3xl max-w-xl text-center backdrop-blur-md shadow-xl mb-6">
-          <h2 className="text-xl font-semibold text-cyan-400 mb-2">
-            {t.doctor.welcomeTitle}
-          </h2>
-          <p className="text-sm text-slate-300 leading-relaxed mb-6">
-            {t.doctor.welcomeDesc}
-          </p>
-
-          {/* Преглед на 4-те бързи клавиша за лекаря */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
-            {quickButtons.map((btn, idx) => {
-              const Icon = btn.icon
-              return (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-900/80 border border-slate-700/70 text-xs font-medium text-slate-200"
-                >
-                  <Icon className={`w-4 h-4 shrink-0 ${btn.color}`} />
-                  <span className="truncate">{btn.label}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-    </main>
+const DoctorPortalPage: React.FC = () => {
+  return (
+    <Suspense fallback={<DoctorPortalSkeleton />}>
+      <DoctorPortalDataLoader />
+    </Suspense>
   )
 }
 

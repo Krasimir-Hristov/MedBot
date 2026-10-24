@@ -19,8 +19,9 @@ export const DeleteDocumentModal: React.FC<DeleteDocumentModalProps> = ({
   onClose,
   onDeleted,
 }) => {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const d = t.admin.deleteDialog
+  const docTitle = locale === 'el' ? document.titleEl : document.titleBg
 
   const [isDeleting, setIsDeleting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -58,7 +59,7 @@ export const DeleteDocumentModal: React.FC<DeleteDocumentModalProps> = ({
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </div>
           <p className="text-sm leading-relaxed text-slate-700">
-            {interpolate(d.desc, { title: document.titleBg })}
+            {interpolate(d.desc, { title: docTitle })}
           </p>
         </div>
 

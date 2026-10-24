@@ -1,5 +1,5 @@
 -- ==============================================================================
--- MEDSCAN RAG - DATABASE SCHEMA & VECTOR SETUP (NEON POSTGRESQL)
+-- MEDBOT - DATABASE SCHEMA & VECTOR SETUP (NEON POSTGRESQL)
 -- ==============================================================================
 
 -- 1. Enable pgvector extension
@@ -25,9 +25,18 @@ CREATE TABLE IF NOT EXISTS medical_documents (
 -- 3. Create doctor_notes table
 CREATE TABLE IF NOT EXISTS doctor_notes (
   id SERIAL PRIMARY KEY,
+  category TEXT NOT NULL DEFAULT 'general',
+  title_bg TEXT,
+  title_el TEXT,
   note_el TEXT NOT NULL,
   note_bg TEXT NOT NULL,
   doctor_name TEXT DEFAULT 'Д-р Специалист',
+  attachment_base64 TEXT,
+  attachment_mime TEXT,
+  attachment_name TEXT,
+  extracted_text TEXT,
+  semantic_text TEXT,
+  embedding vector(1536),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -51,11 +60,51 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 6. Create HNSW Cosine Vector Index for fast semantic RAG queries
+-- 6. Create HNSW Cosine Vector Indexes for fast semantic RAG queries
 CREATE INDEX IF NOT EXISTS medical_documents_embedding_hnsw_idx 
 ON medical_documents 
+USING hnsw (embedding vector_cosine_ops);
+
+CREATE INDEX IF NOT EXISTS doctor_notes_embedding_hnsw_idx 
+ON doctor_notes 
 USING hnsw (embedding vector_cosine_ops);
 
 -- Index on session_id for fast chat loading
 CREATE INDEX IF NOT EXISTS chat_messages_session_idx 
 ON chat_messages (session_id);
+
+-- 7. Row Level Security
+ALTER TABLE medical_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE doctor_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+
+-- 8. AI Dossier Summary & Patient Guidelines (drafts)
+CREATE TABLE IF NOT EXISTS dossier_summaries (
+  id SERIAL PRIMARY KEY,
+  content_el TEXT NOT NULL,
+  document_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  document_count INTEGER NOT NULL,
+  truncated_doc_count INTEGER NOT NULL DEFAULT 0,
+  model TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Чернови на насоки за пациента. Стигат до пациента САМО след одобрение
+-- от лекаря, когато се публикуват като редове в doctor_notes.
+CREATE TABLE IF NOT EXISTS patient_guideline_items (
+  id SERIAL PRIMARY KEY,
+  category TEXT NOT NULL, -- 'diet' | 'exercise' | 'therapy' | 'general'
+  text_el TEXT NOT NULL,
+  rationale_el TEXT,
+  source TEXT NOT NULL DEFAULT 'ai', -- 'ai' | 'doctor'
+  status TEXT NOT NULL DEFAULT 'pending', -- 'pending' | 'approved' | 'rejected'
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE dossier_summaries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE patient_guideline_items ENABLE ROW LEVEL SECURITY;
