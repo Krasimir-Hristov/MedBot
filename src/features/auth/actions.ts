@@ -24,11 +24,27 @@ const WINDOW_MS = 60 * 1000 // 1 минута
 let globalAttempts = { count: 0, resetAt: Date.now() + WINDOW_MS }
 
 /**
- * Извлича клиентския IP адрес от доверени ingress заглавки.
- * Защита от IP spoofing:
- * - Първо проверява специфични ingress хедъри (cf-connecting-ip, x-real-ip).
- * - За x-forwarded-for чете най-десния (последен) IP адрес, който се добавя от най-близкото доверено прокси,
- *   предотвратявайки подправяне на левия адрес от клиента.
+ * Проверява дали даден IP адрес е вътрешен / частен прокси хоп
+ */
+const isPrivateIp = (ip: string): boolean => {
+  return (
+    ip === '127.0.0.1' ||
+    ip === '::1' ||
+    ip === 'localhost' ||
+    ip.startsWith('10.') ||
+    ip.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip) ||
+    ip.startsWith('fc00:') ||
+    ip.startsWith('fe80:')
+  )
+}
+
+/**
+ * Извлича клиентския IP адрес от доверени заглавки.
+ * - Приоритет 1: Директни edge заглавки (cf-connecting-ip, x-real-ip).
+ * - Приоритет 2: За x-forwarded-for следва стандартния модел за верига от доверени проксита (trusted proxy chain):
+ *   обхожда адресите от дясно наляво, пропускайки вътрешните/частни прокси хопове,
+ *   за да открие първоначалния клиентски адрес.
  */
 const getClientIp = async (): Promise<string> => {
   try {
@@ -48,7 +64,13 @@ const getClientIp = async (): Promise<string> => {
     if (forwarded) {
       const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean)
       if (parts.length > 0) {
-        return parts[parts.length - 1]
+        for (let i = parts.length - 1; i >= 0; i--) {
+          const candidate = parts[i]
+          if (!isPrivateIp(candidate)) {
+            return candidate
+          }
+        }
+        return parts[0]
       }
     }
   } catch {
@@ -58,35 +80,38 @@ const getClientIp = async (): Promise<string> => {
 }
 
 /**
- * Проверява лимитите за опити (както по отделен IP, така и глобален праг)
+ * Проверява лимитите за опити (както по отделен IP, така и глобален праг).
+ * Глобалният брояч се увеличава САМО за опити, допуснати и от двата лимита,
+ * за да се предотврати отказ на услуга (DoS) от блокирани IP-та срещу глобалния лимит.
  */
 const checkRateLimit = async (): Promise<boolean> => {
   const now = Date.now()
 
-  // 1. Глобален праг за ограничаване на масиран brute-force с ротиращи IP-та
+  // 1. Проверка на глобалния лимит (без предварително инкрементиране)
   if (now > globalAttempts.resetAt) {
-    globalAttempts = { count: 1, resetAt: now + WINDOW_MS }
-  } else {
-    if (globalAttempts.count >= MAX_GLOBAL_ATTEMPTS) {
-      return false
-    }
-    globalAttempts.count += 1
+    globalAttempts = { count: 0, resetAt: now + WINDOW_MS }
+  } else if (globalAttempts.count >= MAX_GLOBAL_ATTEMPTS) {
+    return false
   }
 
-  // 2. Индивидуален лимит по IP
+  // 2. Индивидуална проверка по IP
   const ip = await getClientIp()
   const record = loginAttempts.get(ip)
 
   if (!record || now > record.resetAt) {
     loginAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS })
+    globalAttempts.count += 1
     return true
   }
 
   if (record.count >= MAX_ATTEMPTS_PER_IP) {
+    // Отхвърлено от IP лимита – НЕ консумира от глобалния ресурс!
     return false
   }
 
+  // Опитът е допуснат и от двата лимита – инкрементираме и двата брояча
   record.count += 1
+  globalAttempts.count += 1
   return true
 }
 

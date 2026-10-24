@@ -110,6 +110,23 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // 7. Защита на административните API маршрути (/api/admin/*)
+  // Само администратор може да качва и управлява документи
+  if (pathname.startsWith('/api/admin')) {
+    if (!role) {
+      return NextResponse.json(
+        { error: 'Неоторизиран достъп. Моля, въведете ПИН код.' },
+        { status: 401 }
+      )
+    }
+    if (role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Нямате права за административни операции.' },
+        { status: 403 }
+      )
+    }
+  }
+
   return NextResponse.next({
     request: {
       headers: requestHeaders,

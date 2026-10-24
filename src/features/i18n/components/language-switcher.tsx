@@ -8,6 +8,8 @@ import { Languages } from 'lucide-react'
 interface LanguageSwitcherProps {
   compact?: boolean
   className?: string
+  /** `light` – компактен клиничен превключвател за светлите портали (/admin, /doctor) */
+  variant?: 'dark' | 'light'
 }
 
 // Кръгло SVG знаме на България (Бяло, Зелено, Червено)
@@ -44,6 +46,7 @@ const GrFlag: React.FC = () => (
 export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
   compact = false,
   className = '',
+  variant = 'dark',
 }) => {
   const { locale, setLocale, t } = useTranslation()
 
@@ -51,6 +54,38 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
     if (newLocale !== locale) {
       setLocale(newLocale)
     }
+  }
+
+  if (variant === 'light') {
+    const options: Array<{ value: Locale; label: string; aria: string }> = [
+      { value: 'bg', label: 'BG', aria: 'Превключи на Български език' },
+      { value: 'el', label: 'ΕΛ', aria: 'Αλλαγή σε Ελληνικά' },
+    ]
+
+    return (
+      <div
+        role="group"
+        aria-label={t.common.switchLanguage}
+        className={`inline-flex items-center rounded-md border border-slate-200 bg-slate-100 p-0.5 font-clinical-mono text-xs ${className}`}
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => handleSelect(option.value)}
+            aria-label={option.aria}
+            aria-pressed={locale === option.value}
+            className={`cursor-pointer rounded px-2.5 py-1 font-semibold transition-colors ${
+              locale === option.value
+                ? 'bg-white text-sky-700 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    )
   }
 
   return (

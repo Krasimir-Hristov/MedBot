@@ -92,6 +92,9 @@ export const getSession = async (): Promise<SessionPayload | null> => {
     const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
     return await verifySessionToken(token)
   } catch (error) {
+    if (typeof error === 'object' && error !== null && 'digest' in error) {
+      throw error
+    }
     console.error('Failed to get session:', error)
     return null
   }
