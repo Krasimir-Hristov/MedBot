@@ -15,21 +15,41 @@ const PinSchema = z.object({
     .regex(/^[0-9a-zA-Z]+$/, 'ПИН кодът може да съдържа само цифри и букви.'),
 })
 
-// Базово проследяване на опитите за вход по IP адрес за ограничаване на злоупотреби
+// Проследяване на опитите за вход за ограничаване на brute-force атаки
 const loginAttempts = new Map<string, { count: number; resetAt: number }>()
-const MAX_ATTEMPTS = 10
+const MAX_ATTEMPTS_PER_IP = 10
+const MAX_GLOBAL_ATTEMPTS = 60
 const WINDOW_MS = 60 * 1000 // 1 минута
 
+let globalAttempts = { count: 0, resetAt: Date.now() + WINDOW_MS }
+
+/**
+ * Извлича клиентския IP адрес от доверени ingress заглавки.
+ * Защита от IP spoofing:
+ * - Първо проверява специфични ingress хедъри (cf-connecting-ip, x-real-ip).
+ * - За x-forwarded-for чете най-десния (последен) IP адрес, който се добавя от най-близкото доверено прокси,
+ *   предотвратявайки подправяне на левия адрес от клиента.
+ */
 const getClientIp = async (): Promise<string> => {
   try {
     const headersList = await headers()
-    const forwarded = headersList.get('x-forwarded-for')
-    if (forwarded) {
-      return forwarded.split(',')[0].trim()
+
+    const cfIp = headersList.get('cf-connecting-ip')
+    if (cfIp) {
+      return cfIp.trim()
     }
+
     const realIp = headersList.get('x-real-ip')
     if (realIp) {
       return realIp.trim()
+    }
+
+    const forwarded = headersList.get('x-forwarded-for')
+    if (forwarded) {
+      const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean)
+      if (parts.length > 0) {
+        return parts[parts.length - 1]
+      }
     }
   } catch {
     // Fallback ако хедърите не са достъпни
@@ -37,9 +57,24 @@ const getClientIp = async (): Promise<string> => {
   return 'unknown-ip'
 }
 
+/**
+ * Проверява лимитите за опити (както по отделен IP, така и глобален праг)
+ */
 const checkRateLimit = async (): Promise<boolean> => {
-  const ip = await getClientIp()
   const now = Date.now()
+
+  // 1. Глобален праг за ограничаване на масиран brute-force с ротиращи IP-та
+  if (now > globalAttempts.resetAt) {
+    globalAttempts = { count: 1, resetAt: now + WINDOW_MS }
+  } else {
+    if (globalAttempts.count >= MAX_GLOBAL_ATTEMPTS) {
+      return false
+    }
+    globalAttempts.count += 1
+  }
+
+  // 2. Индивидуален лимит по IP
+  const ip = await getClientIp()
   const record = loginAttempts.get(ip)
 
   if (!record || now > record.resetAt) {
@@ -47,7 +82,7 @@ const checkRateLimit = async (): Promise<boolean> => {
     return true
   }
 
-  if (record.count >= MAX_ATTEMPTS) {
+  if (record.count >= MAX_ATTEMPTS_PER_IP) {
     return false
   }
 
