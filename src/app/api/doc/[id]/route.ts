@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getSession } from '@/features/auth/lib/session'
+import { SESSION_COOKIE_NAME, verifySessionToken } from '@/features/auth/lib/session'
 import { getDocumentBinaryById } from '@/features/documents'
 
 const ParamSchema = z.object({
@@ -14,12 +14,13 @@ interface RouteContext {
 }
 
 export const GET = async (
-  _request: NextRequest,
+  request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> => {
   try {
     // 1. Защита на ниво API Route (Defense in Depth)
-    const session = await getSession()
+    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value
+    const session = await verifySessionToken(token)
     if (!session) {
       return NextResponse.json(
         { error: 'Неоторизиран достъп. Моля, влезте с вашия ПИН код.' },
@@ -65,14 +66,21 @@ export const GET = async (
 
     const fileBuffer = Buffer.from(base64Data, 'base64')
     const mimeType = documentData.mimeType || 'image/jpeg'
+    const extension = mimeType === 'application/pdf'
+      ? 'pdf'
+      : mimeType === 'image/png'
+      ? 'png'
+      : mimeType === 'image/webp'
+      ? 'webp'
+      : 'jpg'
 
-    // 5. Връщане на бинарното изображение с оптимизирано кеширане
+    // 5. Връщане на бинарния файл с оптимизирано кеширане
     return new NextResponse(fileBuffer, {
       status: 200,
       headers: {
         'Content-Type': mimeType,
         'Content-Length': fileBuffer.byteLength.toString(),
-        'Content-Disposition': `inline; filename="doc-${documentId}.jpg"`,
+        'Content-Disposition': `inline; filename="doc-${documentId}.${extension}"`,
         'Cache-Control': 'private, max-age=86400, stale-while-revalidate=3600',
       },
     })

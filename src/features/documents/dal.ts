@@ -1,5 +1,5 @@
 import 'server-only'
-import { desc, eq, sql } from 'drizzle-orm'
+import { asc, cosineDistance, desc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { medicalDocuments } from '@/lib/db/schema'
 import type {
@@ -8,6 +8,8 @@ import type {
   DocumentClinicalMetadata,
   DocumentDetailItem,
   DocumentListItem,
+  DossierSourceDocument,
+  RagDocumentMatch,
   UpdateMedicalDocumentInput,
 } from './types'
 
@@ -233,3 +235,85 @@ export const deleteMedicalDocument = async (documentId: number): Promise<boolean
     throw new Error('Грешка при изтриване на документа.')
   }
 }
+
+/**
+ * Векторно търсене по HNSW косинусно разстояние.
+ * Egress-optimized: НЕ връща тежкия file_base64 и embedding.
+ */
+export const searchDocumentsByVector = async (
+  queryEmbedding: number[],
+  limit = 12
+): Promise<RagDocumentMatch[]> => {
+  try {
+    const similarity = sql<number>`1 - (${cosineDistance(medicalDocuments.embedding, queryEmbedding)})`
+    const rows = await db
+      .select({
+        id: medicalDocuments.id,
+        titleBg: medicalDocuments.titleBg,
+        titleEl: medicalDocuments.titleEl,
+        docDate: medicalDocuments.docDate,
+        category: medicalDocuments.category,
+        summaryEl: medicalDocuments.summaryEl,
+        extractedText: medicalDocuments.extractedText,
+        metadata: medicalDocuments.metadata,
+        similarity,
+      })
+      .from(medicalDocuments)
+      .where(sql`${medicalDocuments.embedding} IS NOT NULL`)
+      .orderBy(desc(similarity))
+      .limit(limit)
+
+    return rows.map((r) => ({
+      id: r.id,
+      titleBg: r.titleBg,
+      titleEl: r.titleEl,
+      docDate: r.docDate,
+      category: r.category,
+      summaryEl: r.summaryEl,
+      extractedText: r.extractedText,
+      metadata: parseClinicalMetadata(r.metadata),
+      similarity: Number(r.similarity) || 0,
+    }))
+  } catch (error) {
+    console.error('Error in searchDocumentsByVector:', error)
+    throw new Error('Грешка при векторно търсене в медицинските документи.')
+  }
+}
+
+/**
+ * Всички документи в ХРОНОЛОГИЧЕН ред с пълния OCR текст – вход за обобщение на цялото досие.
+ * Egress-optimized: умишлено НЕ връща `file_base64`, `embedding` и `semantic_text`.
+ */
+export const getDossierForSummary = async (): Promise<DossierSourceDocument[]> => {
+  try {
+    const rows = await db
+      .select({
+        id: medicalDocuments.id,
+        titleBg: medicalDocuments.titleBg,
+        titleEl: medicalDocuments.titleEl,
+        docDate: medicalDocuments.docDate,
+        category: medicalDocuments.category,
+        summaryEl: medicalDocuments.summaryEl,
+        extractedText: medicalDocuments.extractedText,
+        metadata: medicalDocuments.metadata,
+      })
+      .from(medicalDocuments)
+      .orderBy(asc(medicalDocuments.docDate), asc(medicalDocuments.id))
+
+    return rows.map((r) => ({
+      id: r.id,
+      titleBg: r.titleBg,
+      titleEl: r.titleEl,
+      docDate: r.docDate,
+      category: r.category,
+      summaryEl: r.summaryEl,
+      extractedText: r.extractedText,
+      metadata: parseClinicalMetadata(r.metadata),
+    }))
+  } catch (error) {
+    console.error('Error fetching dossier for summary:', error)
+    throw new Error('Грешка при зареждане на досието за обобщение.')
+  }
+}
+
+export { parseClinicalMetadata }

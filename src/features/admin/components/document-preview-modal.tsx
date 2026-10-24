@@ -34,8 +34,11 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   document,
   onClose,
 }) => {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const p = t.admin.preview
+  const isGreek = locale === 'el'
+  const primaryTitle = isGreek ? document.titleEl : document.titleBg
+  const secondaryTitle = isGreek ? document.titleBg : document.titleEl
 
   const [zoom, setZoom] = useState(100)
   const [rotation, setRotation] = useState(0)
@@ -74,7 +77,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
   return (
     <ModalShell
-      title={`${p.title} — ${document.titleBg}`}
+      title={`${p.title} — ${primaryTitle}`}
       closeLabel={p.close}
       onClose={onClose}
       widthClass="max-w-5xl"
@@ -133,7 +136,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
           <div className="flex max-h-[68vh] min-h-[360px] items-start justify-center overflow-auto p-4">
             <Image
               src={imageUrl}
-              alt={`${p.imageAlt}: ${document.titleBg}`}
+              alt={`${p.imageAlt}: ${primaryTitle}`}
               width={1200}
               height={1600}
               unoptimized
@@ -158,8 +161,8 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               </span>
               <span className="font-clinical-mono text-xs text-slate-500">{document.docDate}</span>
             </div>
-            <h3 className="mt-1 text-sm font-bold text-slate-900">{document.titleBg}</h3>
-            <p className="text-xs italic text-slate-500">{document.titleEl}</p>
+            <h3 className="mt-1 text-sm font-bold text-slate-900">{primaryTitle}</h3>
+            <p className="text-xs italic text-slate-500">{secondaryTitle}</p>
           </div>
 
           {detailState.status === 'loading' && (
