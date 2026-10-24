@@ -41,6 +41,58 @@ export interface DocumentListItem {
   createdAt: string
 }
 
+export type DocumentCatalogItem = DocumentListItem
+
+export interface RagDocumentMatch {
+  id: number
+  titleBg: string
+  titleEl: string
+  docDate: string
+  category: string
+  summaryEl: string
+  extractedText: string
+  metadata: DocumentClinicalMetadata
+  similarity: number
+}
+
+/** Пълен документ (с OCR текст, без base64 и вектор) за обобщение на цялото досие. */
+export interface DossierSourceDocument {
+  id: number
+  titleBg: string
+  titleEl: string
+  docDate: string
+  category: string
+  summaryEl: string
+  extractedText: string
+  metadata: DocumentClinicalMetadata
+}
+
+export interface AiExtractedDocumentData {
+  titleBg: string
+  titleEl: string
+  docDate: string
+  category: DocumentCategory
+  summaryEl: string
+  patientSummaryBg: string
+  isPrescriptionOrGuidance: boolean
+  extractedText: string
+  metadata: DocumentClinicalMetadata
+}
+
+export interface IngestDocumentInput {
+  fileBase64: string
+  mimeType: string
+  fileName?: string
+  uploadedByRole: 'doctor' | 'admin'
+  autoCreatePatientNote?: boolean
+}
+
+export interface IngestDocumentResult {
+  document: DocumentCatalogItem
+  patientNoteCreated: boolean
+  patientNoteId?: number
+}
+
 export interface DocumentDetailItem extends DocumentListItem {
   extractedText: string
   hospital?: string
