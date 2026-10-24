@@ -70,7 +70,7 @@ export const AdminMetricsStrip: React.FC<AdminMetricsStripProps> = ({ documents 
       <MetricCard label={m.imaging} value={imaging} unit={m.imagingUnit} hint={m.imagingHint} icon={Scan} />
       <MetricCard
         label={m.index}
-        value={<span className="font-clinical-mono text-xl">HNSW 1536d</span>}
+        value={<span className="font-clinical-mono text-xl">pgvector 1536d</span>}
         hint={interpolate(m.indexHint, { vectorized, total })}
         icon={BrainCircuit}
         badge={
