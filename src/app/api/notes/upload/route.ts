@@ -20,7 +20,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     } catch (err) {
       if (err instanceof PayloadTooLargeError) {
         return NextResponse.json(
-          { error: 'Файлът надвишава максимално допустимия размер от 5MB.' },
+          { error: 'Заявката надвишава максимално допустимия размер от 8MB.' },
           { status: 413 }
         )
       }
