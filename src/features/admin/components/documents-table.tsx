@@ -21,8 +21,9 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const r = t.admin.registry
+  const isGreek = locale === 'el'
 
   const renderMarkers = (markers: string[]) => {
     if (markers.length === 0) {
@@ -82,6 +83,8 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
             {documents.map((doc) => {
               const catKey = getCategoryKey(doc.category)
               const catLabel = t.admin.categories[catKey]
+              const primaryTitle = isGreek ? doc.titleEl : doc.titleBg
+              const secondaryTitle = isGreek ? doc.titleBg : doc.titleEl
 
               return (
                 <tr key={doc.id} className="group transition-colors hover:bg-sky-50/40">
@@ -92,13 +95,13 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                     <button
                       type="button"
                       onClick={() => onPreview(doc)}
-                      aria-label={`${r.preview}: ${doc.titleBg}`}
+                      aria-label={`${r.preview}: ${primaryTitle}`}
                       className="flex cursor-pointer flex-col text-left focus-visible:outline-2 focus-visible:outline-sky-600"
                     >
                       <span className="line-clamp-1 font-semibold text-slate-900 transition-colors group-hover:text-sky-700">
-                        {doc.titleBg}
+                        {primaryTitle}
                       </span>
-                      <span className="line-clamp-1 text-xs italic text-slate-500">{doc.titleEl}</span>
+                      <span className="line-clamp-1 text-xs italic text-slate-500">{secondaryTitle}</span>
                     </button>
                   </td>
                   <td className="px-4 py-3 align-top whitespace-nowrap">
@@ -133,7 +136,7 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                       <button
                         type="button"
                         onClick={() => onPreview(doc)}
-                        aria-label={`${r.preview}: ${doc.titleBg}`}
+                        aria-label={`${r.preview}: ${primaryTitle}`}
                         title={r.preview}
                         className="cursor-pointer rounded-md p-1.5 text-slate-500 transition-colors hover:bg-sky-50 hover:text-sky-700"
                       >
@@ -142,7 +145,7 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                       <button
                         type="button"
                         onClick={() => onEdit(doc)}
-                        aria-label={`${r.edit}: ${doc.titleBg}`}
+                        aria-label={`${r.edit}: ${primaryTitle}`}
                         title={r.edit}
                         className="cursor-pointer rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
                       >
@@ -151,7 +154,7 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                       <button
                         type="button"
                         onClick={() => onDelete(doc)}
-                        aria-label={`${r.remove}: ${doc.titleBg}`}
+                        aria-label={`${r.remove}: ${primaryTitle}`}
                         title={r.remove}
                         className="cursor-pointer rounded-md p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
                       >
@@ -171,6 +174,8 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
         {documents.map((doc) => {
           const catKey = getCategoryKey(doc.category)
           const catLabel = t.admin.categories[catKey]
+          const primaryTitle = isGreek ? doc.titleEl : doc.titleBg
+          const secondaryTitle = isGreek ? doc.titleBg : doc.titleEl
 
           return (
             <article key={doc.id} className="flex flex-col gap-2.5 p-4">
@@ -193,11 +198,11 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
               <button
                 type="button"
                 onClick={() => onPreview(doc)}
-                aria-label={`${r.preview}: ${doc.titleBg}`}
+                aria-label={`${r.preview}: ${primaryTitle}`}
                 className="flex cursor-pointer flex-col text-left"
               >
-                <span className="text-sm font-semibold text-slate-900">{doc.titleBg}</span>
-                <span className="text-xs italic text-slate-500">{doc.titleEl}</span>
+                <span className="text-sm font-semibold text-slate-900">{primaryTitle}</span>
+                <span className="text-xs italic text-slate-500">{secondaryTitle}</span>
               </button>
 
               {doc.keyMarkers.length > 0 && <div>{renderMarkers(doc.keyMarkers)}</div>}
@@ -206,7 +211,7 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                 <button
                   type="button"
                   onClick={() => onPreview(doc)}
-                  aria-label={`${r.preview}: ${doc.titleBg}`}
+                  aria-label={`${r.preview}: ${primaryTitle}`}
                   className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700"
                 >
                   <Eye className="h-3.5 w-3.5" aria-hidden="true" />
@@ -215,7 +220,7 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                 <button
                   type="button"
                   onClick={() => onEdit(doc)}
-                  aria-label={`${r.edit}: ${doc.titleBg}`}
+                  aria-label={`${r.edit}: ${primaryTitle}`}
                   className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -224,7 +229,7 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                 <button
                   type="button"
                   onClick={() => onDelete(doc)}
-                  aria-label={`${r.remove}: ${doc.titleBg}`}
+                  aria-label={`${r.remove}: ${primaryTitle}`}
                   className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100"
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
