@@ -54,8 +54,9 @@ export const GET = async (
       headers: {
         'Content-Type': mimeType,
         'Content-Length': fileBuffer.byteLength.toString(),
-        'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`,
-        'Cache-Control': 'private, max-age=86400, stale-while-revalidate=3600',
+        'Content-Disposition': `inline; filename="prescription-${noteId}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
       },
     })
   } catch (error) {

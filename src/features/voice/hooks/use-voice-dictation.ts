@@ -198,9 +198,11 @@ export const useVoiceDictation = ({
       }
 
       recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+        if (recognitionRef.current !== recognition) return
         const errType = event.error
         // Ако браузърът няма Speech услуга за езика или е блокирана -> fallback към Whisper
         if (errType === 'service-not-allowed' || errType === 'language-not-supported' || errType === 'network') {
+          recognition.onend = null
           stopWebSpeech()
           void startWhisperFallback()
           return
@@ -213,7 +215,9 @@ export const useVoiceDictation = ({
       }
 
       recognition.onend = () => {
-        stopWebSpeech()
+        if (recognitionRef.current === recognition) {
+          stopWebSpeech()
+        }
       }
 
       recognition.start()

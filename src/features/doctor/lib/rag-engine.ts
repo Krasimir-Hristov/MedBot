@@ -2,6 +2,9 @@ import 'server-only'
 import { AI_MODELS, openrouter } from '@/lib/openrouter'
 import type { Locale } from '@/features/i18n'
 import type { DocumentCatalogItem, RagDocumentMatch } from '@/features/documents'
+import { truncateToTokenBudget } from '@/features/admin/lib/ai-pipeline'
+
+const RETRIEVAL_TOKEN_BUDGET = 60_000
 
 /**
  * Двуезично и терминологично разширяване на лекарския въпрос
@@ -64,6 +67,7 @@ export const formatDossierCatalogIndex = (
 
 /**
  * Форматира извлечените от векторното търсене документи с пълен текст и метаданни.
+ * Ограничава токен обема на откъсите за предпазване на латентността и разходите.
  */
 export const formatRetrievedMatches = (
   matches: RagDocumentMatch[],
@@ -72,6 +76,8 @@ export const formatRetrievedMatches = (
   if (matches.length === 0) {
     return 'Няма намерени сходни откъси / Δεν βρέθηκαν συναφή αποσπάσματα.'
   }
+
+  const perDocBudget = Math.max(1000, Math.floor(RETRIEVAL_TOKEN_BUDGET / matches.length))
 
   return matches
     .map((m, idx) => {
@@ -91,7 +97,7 @@ export const formatRetrievedMatches = (
 Метаданни: ${meta || 'Няма'}
 Резюме: ${m.summaryEl}
 Пълен извлечен текст:
-${m.extractedText}
+${truncateToTokenBudget(m.extractedText, perDocBudget)}
 ---`
     })
     .join('\n\n')
@@ -107,7 +113,7 @@ export const buildDoctorSystemPrompt = (
 ): string => {
   const languageDirective =
     locale === 'el'
-      ? 'Απαντήστε υποχρεωτικά στα ΕΛΛΗΝΙΚΑ (Greek) με άρτια ιατρική ογκολογική ορολογία.'
+      ? 'Απαντήστε υποχρεωτικά στα ΕΛΛΗΝΙΚΑ (Greek) με άρτια ιατρική ογκολογική οроλογία.'
       : 'Отговаряйте задължително на БЪЛГАРСКИ ЕЗИК с точна медицинска онкологична терминология.'
 
   return `You are MedBot, an elite Clinical Oncology AI Assistant consulting an oncologist regarding a female oncology patient (68 y/o, osteoporosis, pulmonary lesion).

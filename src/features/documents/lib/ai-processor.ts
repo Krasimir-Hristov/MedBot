@@ -23,7 +23,7 @@ const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 const ExtractedJsonSchema = z.object({
   title_bg: z.string().trim().min(1).max(300),
   title_el: z.string().trim().min(1).max(300),
-  doc_date: z.string().regex(ISO_DATE_REGEX).catch(new Date().toISOString().slice(0, 10)),
+  doc_date: z.string().regex(ISO_DATE_REGEX).optional().catch(undefined),
   category: z.string().trim().catch('Други'),
   summary_el: z.string().trim().min(1).max(3000),
   patient_summary_bg: z.string().trim().optional().default(''),
@@ -127,6 +127,7 @@ export const processAndStoreDocument = async (
 
     const rawContent = completion.choices[0]?.message?.content ?? ''
     const parsedData = ExtractedJsonSchema.parse(parseJsonObject(rawContent))
+    const docDate = parsedData.doc_date || today
 
     const clinicalMeta: DocumentClinicalMetadata = {
       hospital: parsedData.hospital ?? undefined,
@@ -152,7 +153,7 @@ export const processAndStoreDocument = async (
     const semanticText = buildBilingualSemanticText({
       titleBg: parsedData.title_bg,
       titleEl: parsedData.title_el,
-      docDate: parsedData.doc_date,
+      docDate,
       category: validCategory,
       summaryEl: parsedData.summary_el,
       metadata: clinicalMeta,
@@ -165,7 +166,7 @@ export const processAndStoreDocument = async (
     const documentInput: CreateMedicalDocumentInput = {
       titleBg: parsedData.title_bg,
       titleEl: parsedData.title_el,
-      docDate: parsedData.doc_date,
+      docDate,
       category: validCategory,
       summaryEl: parsedData.summary_el,
       metadata: clinicalMeta,

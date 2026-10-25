@@ -2,6 +2,7 @@ import 'server-only'
 import { desc, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { doctorNotes, medicalDocuments } from '@/lib/db/schema'
+import { parseClinicalMetadata } from '@/features/documents'
 import { createEmbedding, expandBilingualQuery } from './lib/embeddings'
 import type { RagContextBundle, RagDoctorNoteMatch, RagDocumentMatch } from './types'
 
@@ -42,7 +43,7 @@ export const searchRelevantDocuments = async (
         summaryEl: r.summaryEl,
         similarity: Number(r.similarity ?? 0),
         extractedText: r.extractedText,
-        metadata: r.metadata,
+        metadata: parseClinicalMetadata(r.metadata),
       }))
     }
 
@@ -71,7 +72,7 @@ export const searchRelevantDocuments = async (
       summaryEl: r.summaryEl,
       similarity: 0.5,
       extractedText: r.extractedText,
-      metadata: r.metadata,
+      metadata: parseClinicalMetadata(r.metadata),
     }))
   } catch (error) {
     console.error('Error searching documents with pgvector:', error)

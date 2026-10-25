@@ -45,13 +45,21 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 export const checkScopedRateLimit = async (
   scope: string,
   limit: number,
-  windowMs = 60_000
+  windowMs = 60_000,
+  identity?: string
 ): Promise<{ allowed: boolean; remaining: number }> => {
   const headerStore = await headers()
   const forwarded = headerStore.get('x-forwarded-for')
   const clientIp = forwarded ? forwarded.split(',')[0]?.trim() || 'unknown' : 'unknown'
-  const key = `${scope}:${clientIp}`
+  const key = `${scope}:${identity ?? clientIp}`
   const now = Date.now()
+
+  // Почистване на изтекли записи за предпазване от изтичане на памет
+  for (const [k, v] of rateLimitMap) {
+    if (now > v.resetAt) {
+      rateLimitMap.delete(k)
+    }
+  }
 
   const entry = rateLimitMap.get(key)
   if (!entry || now > entry.resetAt) {

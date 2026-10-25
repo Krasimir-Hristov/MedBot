@@ -1,14 +1,6 @@
-export interface RagDocumentMatch {
-  id: number
-  titleBg: string
-  titleEl: string
-  docDate: string
-  category: string
-  summaryEl: string
-  similarity: number
-  extractedText: string
-  metadata?: Record<string, unknown> | null
-}
+import type { RagDocumentMatch } from '@/features/documents/types'
+
+export type { RagDocumentMatch }
 
 export interface RagDoctorNoteMatch {
   id: number

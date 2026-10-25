@@ -38,7 +38,7 @@ export const QuickPromptsBar: React.FC<QuickPromptsBarProps> = ({
     {
       label: t.doctor.quickPrompts.markers,
       icon: Activity,
-      promptText: 'Ποια είναι η πορεία των καρκινικών και αιματολογικών δεικτών (CA 15-3, CEA и др.);',
+      promptText: 'Ποια είναι η πορεία των καρκινικών και αιματολογικών δεικτών (CA 15-3, CEA κ.λπ.);',
     },
   ]
 

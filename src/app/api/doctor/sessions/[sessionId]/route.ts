@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { getSession } from '@/features/auth/lib/session'
 import {
   deleteChatSession,
@@ -11,6 +12,14 @@ interface RouteContext {
     sessionId: string
   }>
 }
+
+const PatchSessionSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Заглавието не може да бъде празно.')
+    .max(200, 'Заглавието е твърде дълго (макс. 200 символа).'),
+})
 
 export const GET = async (
   _request: NextRequest,
@@ -45,17 +54,27 @@ export const PATCH = async (
     }
 
     const { sessionId } = await context.params
-    const body = await request.json()
-    const title = (body.title as string | undefined)?.trim()
 
-    if (!title) {
+    let rawBody: unknown
+    try {
+      rawBody = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Невалиден JSON формат.' }, { status: 400 })
+    }
+
+    const parsed = PatchSessionSchema.safeParse(rawBody)
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Заглавието не може да бъде празно.' },
+        { error: parsed.error.issues[0]?.message || 'Невалидно заглавие.' },
         { status: 400 }
       )
     }
 
-    const updated = await updateChatSessionTitle(sessionId, title)
+    const updated = await updateChatSessionTitle(sessionId, parsed.data.title, 'doctor')
+    if (!updated) {
+      return NextResponse.json({ error: 'Сесията не е намерена.' }, { status: 404 })
+    }
+
     return NextResponse.json({ session: updated })
   } catch (error) {
     console.error('Error updating session title:', error)
@@ -77,7 +96,7 @@ export const DELETE = async (
     }
 
     const { sessionId } = await context.params
-    const deleted = await deleteChatSession(sessionId)
+    const deleted = await deleteChatSession(sessionId, 'doctor')
     return NextResponse.json({ success: deleted })
   } catch (error) {
     console.error('Error deleting session:', error)

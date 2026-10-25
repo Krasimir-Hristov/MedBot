@@ -35,7 +35,7 @@ export const DoctorHeader: React.FC<DoctorHeaderProps> = ({ totalDocs = 0 }) => 
           <>
             <span className="text-slate-300">•</span>
             <span className="text-slate-500 font-mono">
-              {totalDocs} {t.doctor.catalog.totalDocs.replace('{count}', totalDocs.toString())}
+              {t.doctor.catalog.totalDocs.replace('{count}', totalDocs.toString())}
             </span>
           </>
         )}

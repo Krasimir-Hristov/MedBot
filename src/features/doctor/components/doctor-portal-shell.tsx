@@ -163,7 +163,7 @@ export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
 
           {/* Tab съдържание */}
           <div className="flex-1 overflow-hidden flex flex-col">
-            {rightTab === 'viewer' && <DocumentViewer document={selectedDocument} />}
+            {rightTab === 'viewer' && <DocumentViewer key={selectedDocument?.id} document={selectedDocument} />}
             {rightTab === 'catalog' && (
               <DocumentsCatalogTab
                 documents={documents}

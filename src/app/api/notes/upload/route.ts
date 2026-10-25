@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { requireRoles } from '@/features/auth/lib/role-guard'
+import { requireRoles, AuthError } from '@/features/auth/lib/role-guard'
 import { UploadPrescriptionPayloadSchema } from '@/features/doctor-notes/schemas'
-import { processPrescriptionFileAI } from '@/features/doctor-notes/lib/note-ai-pipeline'
+import { processPrescriptionFileAI, NotePipelineError } from '@/features/doctor-notes/lib/note-ai-pipeline'
 import { createDoctorNote } from '@/features/doctor-notes/dal'
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
@@ -33,8 +33,10 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     return NextResponse.json(created, { status: 201 })
   } catch (error) {
     console.error('Error in /api/notes/upload:', error)
+    const status =
+      error instanceof AuthError || error instanceof NotePipelineError ? error.statusCode : 500
     const message =
       error instanceof Error ? error.message : 'Възникна системна грешка при качване на предписанието.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: message }, { status })
   }
 }

@@ -143,8 +143,26 @@ export const useDoctorChat = ({
             if (!line.startsWith('data: ')) continue
             try {
               const payload = JSON.parse(line.slice(6))
-              if (payload.type === 'session' && !activeSessionId) {
-                setActiveSessionId(payload.sessionId)
+              if (payload.type === 'session') {
+                if (!activeSessionId) {
+                  setActiveSessionId(payload.sessionId)
+                }
+                setSessions((prev) => {
+                  if (prev.some((s) => s.sessionId === payload.sessionId)) return prev
+                  const titleSnippet =
+                    messageText.length > 35 ? `${messageText.slice(0, 35)}...` : messageText
+                  return [
+                    {
+                      id: Date.now(),
+                      sessionId: payload.sessionId,
+                      role: 'doctor',
+                      title: titleSnippet,
+                      createdAt: new Date(),
+                      updatedAt: new Date(),
+                    },
+                    ...prev,
+                  ]
+                })
               } else if (payload.type === 'chunk') {
                 accumulated += payload.text
                 setStreamingContent(accumulated)

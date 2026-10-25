@@ -43,7 +43,7 @@ export const MobileDocumentSheet: React.FC<MobileDocumentSheetProps> = ({
 
         {/* Viewer */}
         <div className="flex-1 overflow-hidden">
-          <DocumentViewer document={document} />
+          <DocumentViewer key={document.id} document={document} />
         </div>
       </div>
     </div>

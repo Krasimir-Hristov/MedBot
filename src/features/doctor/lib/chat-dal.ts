@@ -1,5 +1,5 @@
 import 'server-only'
-import { asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { chatMessages, chatSessions } from '@/lib/db/schema'
 import type { ChatMessage, ChatSession } from '@/lib/db/schema'
@@ -18,6 +18,21 @@ export const getDoctorChatSessions = async (): Promise<ChatSession[]> => {
   } catch (error) {
     console.error('Error fetching doctor chat sessions:', error)
     throw new Error('Грешка при зареждане на чат сесиите.')
+  }
+}
+
+export const getChatSession = async (sessionId: string): Promise<ChatSession | null> => {
+  try {
+    const rows = await db
+      .select()
+      .from(chatSessions)
+      .where(eq(chatSessions.sessionId, sessionId))
+      .limit(1)
+
+    return rows[0] || null
+  } catch (error) {
+    console.error(`Error fetching chat session ${sessionId}:`, error)
+    return null
   }
 }
 
@@ -61,7 +76,8 @@ export const createChatSession = async (
 
 export const updateChatSessionTitle = async (
   sessionId: string,
-  title: string
+  title: string,
+  role = 'doctor'
 ): Promise<ChatSession | null> => {
   try {
     const rows = await db
@@ -70,7 +86,11 @@ export const updateChatSessionTitle = async (
         title,
         updatedAt: new Date(),
       })
-      .where(eq(chatSessions.sessionId, sessionId))
+      .where(
+        role
+          ? and(eq(chatSessions.sessionId, sessionId), eq(chatSessions.role, role))
+          : eq(chatSessions.sessionId, sessionId)
+      )
       .returning()
 
     return rows[0] || null
@@ -80,11 +100,18 @@ export const updateChatSessionTitle = async (
   }
 }
 
-export const deleteChatSession = async (sessionId: string): Promise<boolean> => {
+export const deleteChatSession = async (
+  sessionId: string,
+  role = 'doctor'
+): Promise<boolean> => {
   try {
     const rows = await db
       .delete(chatSessions)
-      .where(eq(chatSessions.sessionId, sessionId))
+      .where(
+        role
+          ? and(eq(chatSessions.sessionId, sessionId), eq(chatSessions.role, role))
+          : eq(chatSessions.sessionId, sessionId)
+      )
       .returning({ sessionId: chatSessions.sessionId })
 
     return rows.length > 0

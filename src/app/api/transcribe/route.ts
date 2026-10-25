@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAnyAuthenticatedRole, checkScopedRateLimit } from '@/features/auth/lib/role-guard'
+import {
+  requireAnyAuthenticatedRole,
+  checkScopedRateLimit,
+  AuthError,
+} from '@/features/auth/lib/role-guard'
 import { TranscribeRequestSchema } from '@/features/voice/schemas'
-import { transcribeAudioWithWhisper } from '@/features/voice/lib/transcribe-server'
+import {
+  transcribeAudioWithWhisper,
+  TranscriptionError,
+} from '@/features/voice/lib/transcribe-server'
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -33,8 +40,10 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     return NextResponse.json(result, { status: 200 })
   } catch (error) {
     console.error('Error in /api/transcribe:', error)
+    const status =
+      error instanceof AuthError || error instanceof TranscriptionError ? error.statusCode : 500
     const message =
       error instanceof Error ? error.message : 'Възникна грешка при гласовата транскрипция.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: message }, { status })
   }
 }

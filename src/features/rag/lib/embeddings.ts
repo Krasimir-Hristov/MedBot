@@ -1,5 +1,11 @@
 import 'server-only'
 import { AI_MODELS, openrouter } from '@/lib/openrouter'
+import {
+  estimateTokens,
+  truncateToTokenBudget,
+} from '@/features/admin/lib/ai-pipeline'
+
+export { estimateTokens, truncateToTokenBudget }
 
 const EMBEDDING_DIMENSIONS = 1536
 const SAFE_EMBEDDING_TOKEN_BUDGET = 7_000
@@ -12,49 +18,6 @@ export class RagError extends Error {
     super(message)
     this.name = 'RagError'
   }
-}
-
-/**
- * Оценка на броя токени съобразно езика (гръцкият текст има ~1.15 токена на знак).
- */
-export const estimateTokens = (text: string): number => {
-  let tokens = 0
-  for (let index = 0; index < text.length; index += 1) {
-    const code = text.charCodeAt(index)
-    if (code < 0x0080) {
-      tokens += 0.65
-    } else if (code >= 0x0400 && code <= 0x04ff) {
-      tokens += 0.55
-    } else if (code >= 0x0370 && code <= 0x03ff) {
-      tokens += 1.15
-    } else if (code >= 0x1f00 && code <= 0x1fff) {
-      tokens += 1.15
-    } else {
-      tokens += 1
-    }
-  }
-  return Math.ceil(tokens)
-}
-
-/**
- * Отрязва текст до зададен токен бюджет за безопасно ембединг изчисление.
- */
-export const truncateToTokenBudget = (text: string, budget: number): string => {
-  if (budget <= 0) return ''
-  if (estimateTokens(text) <= budget) return text
-
-  let low = 0
-  let high = text.length
-  while (low < high) {
-    const middle = Math.ceil((low + high) / 2)
-    const candidate = text.slice(0, middle)
-    if (estimateTokens(candidate) <= budget) {
-      low = middle
-    } else {
-      high = middle - 1
-    }
-  }
-  return text.slice(0, low)
 }
 
 /**

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { SESSION_COOKIE_NAME, verifySessionToken } from '@/features/auth/lib/session'
 import { getDocumentsList, searchDocumentsByVector } from '@/features/documents'
 import { createMedicalEmbedding } from '@/features/admin/lib/ai-pipeline'
@@ -6,6 +7,7 @@ import {
   addChatMessage,
   createChatSession,
   getChatMessages,
+  getChatSession,
 } from '@/features/doctor/lib/chat-dal'
 import {
   buildDoctorSystemPrompt,
@@ -15,7 +17,16 @@ import {
   formatRetrievedMatches,
 } from '@/features/doctor/lib/rag-engine'
 import { AI_MODELS, openrouter } from '@/lib/openrouter'
-import type { Locale } from '@/features/i18n'
+
+const ChatDoctorRequestSchema = z.object({
+  sessionId: z.string().trim().min(1).max(100).optional(),
+  message: z
+    .string()
+    .trim()
+    .min(1, 'Съобщението не може да бъде празно.')
+    .max(4000, 'Съобщението е твърде дълго (макс. 4000 символа).'),
+  locale: z.enum(['el', 'bg']).optional().default('el'),
+})
 
 export const POST = async (request: NextRequest): Promise<Response> => {
   try {
@@ -29,22 +40,37 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       )
     }
 
-    const body = await request.json()
-    const { message, locale = 'el' } = body as {
-      sessionId?: string
-      message?: string
-      locale?: Locale
-    }
-
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    let rawBody: unknown
+    try {
+      rawBody = await request.json()
+    } catch {
       return NextResponse.json(
-        { error: 'Съобщението не може да бъде празно.' },
+        { error: 'Невалиден JSON формат.' },
         { status: 400 }
       )
     }
 
-    const cleanMessage = message.trim()
-    let activeSessionId = body.sessionId as string | undefined
+    const parsed = ChatDoctorRequestSchema.safeParse(rawBody)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Невалидни данни за съобщението.' },
+        { status: 400 }
+      )
+    }
+
+    const { message: cleanMessage, locale } = parsed.data
+    let activeSessionId = parsed.data.sessionId
+
+    // Проверка на съществуваща сесия
+    if (activeSessionId) {
+      const existingSession = await getChatSession(activeSessionId)
+      if (!existingSession || existingSession.role !== 'doctor') {
+        return NextResponse.json(
+          { error: 'Невалидна или несъществуваща сесия.' },
+          { status: 404 }
+        )
+      }
+    }
 
     // 2. Създаване на нова сесия при нужда
     if (!activeSessionId) {

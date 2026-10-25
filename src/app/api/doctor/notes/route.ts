@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE_NAME, verifySessionToken } from '@/features/auth/lib/session'
-import {
-  createDoctorNote,
-  deleteDoctorNote,
-  getDoctorNotes,
-} from '@/features/doctor/lib/notes-dal'
-import { AI_MODELS, openrouter } from '@/lib/openrouter'
+import { getDoctorNotes } from '@/features/doctor/lib/notes-dal'
+import { CreateTextNoteSchema } from '@/features/doctor-notes/schemas'
+import { processTextNoteAI } from '@/features/doctor-notes/lib/note-ai-pipeline'
+import { createDoctorNote, deleteDoctorNote } from '@/features/doctor-notes/dal'
 
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value
@@ -15,7 +13,7 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
       return NextResponse.json({ error: 'Неоторизиран достъп.' }, { status: 401 })
     }
 
-    const notes = await getDoctorNotes()
+    const notes = await getDoctorNotes(50)
     return NextResponse.json({ notes })
   } catch (error) {
     console.error('Error fetching doctor notes:', error)
@@ -34,53 +32,51 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       return NextResponse.json({ error: 'Неоторизиран достъп.' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const rawNote = (body.note as string | undefined)?.trim()
-    const doctorName = (body.doctorName as string | undefined)?.trim() || 'Д-р Специалист'
-
-    if (!rawNote) {
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
       return NextResponse.json(
-        { error: 'Текстът на бележката не може да бъде празен.' },
+        { error: 'Невалиден JSON формат.' },
         { status: 400 }
       )
     }
 
-    // AI Превод между Гръцки и Български
-    const translationPrompt = `
-You are a bilingual medical assistant translating doctor's notes and clinical recommendations between Greek (Ελληνικά) and Bulgarian (Български).
-Input text may be in Greek or Bulgarian.
-Generate a JSON with two keys:
-1. "note_el": professional clinical note in Greek.
-2. "note_bg": clear, empathetic, easy-to-read Bulgarian translation/explanation for an elderly oncology patient and her family.
-Input: """${rawNote}"""
-Return ONLY a valid JSON object {"note_el": "...", "note_bg": "..."}.
-`.trim()
+    const rawNote =
+      typeof body === 'object' && body !== null && 'note' in body
+        ? (body as { note: unknown }).note
+        : undefined
 
-    let noteEl = rawNote
-    let noteBg = rawNote
+    const doctorName =
+      typeof body === 'object' && body !== null && 'doctorName' in body
+        ? (body as { doctorName: unknown }).doctorName
+        : undefined
 
-    try {
-      const completion = await openrouter.chat.completions.create({
-        model: AI_MODELS.fast,
-        temperature: 0.1,
-        response_format: { type: 'json_object' },
-        messages: [{ role: 'user', content: translationPrompt }],
-      })
+    const category =
+      typeof body === 'object' && body !== null && 'category' in body
+        ? (body as { category: unknown }).category
+        : undefined
 
-      const content = completion.choices[0]?.message?.content ?? ''
-      const parsed = JSON.parse(content) as { note_el?: string; note_bg?: string }
-      if (parsed.note_el) noteEl = parsed.note_el
-      if (parsed.note_bg) noteBg = parsed.note_bg
-    } catch (translationError) {
-      console.warn('AI translation fallback to raw text:', translationError)
-    }
-
-    const created = await createDoctorNote({
-      noteEl,
-      noteBg,
+    const parsed = CreateTextNoteSchema.safeParse({
+      noteText: rawNote,
+      category,
       doctorName,
     })
 
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Текстът на бележката не може да бъде празен.' },
+        { status: 400 }
+      )
+    }
+
+    const processed = await processTextNoteAI(
+      parsed.data.noteText,
+      parsed.data.category,
+      parsed.data.doctorName
+    )
+
+    const created = await createDoctorNote(processed)
     return NextResponse.json({ note: created }, { status: 201 })
   } catch (error) {
     console.error('Error creating doctor note:', error)

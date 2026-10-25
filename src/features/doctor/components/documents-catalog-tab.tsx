@@ -92,10 +92,12 @@ export const DocumentsCatalogTab: React.FC<DocumentsCatalogTabProps> = ({
             const title = locale === 'el' ? doc.titleEl : doc.titleBg
 
             return (
-              <div
+              <button
+                type="button"
                 key={doc.id}
                 onClick={() => onSelectDocument(doc.id)}
-                className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                aria-label={title || `Документ ${doc.id}`}
+                className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-sky-50/80 border-sky-300 shadow-xs ring-1 ring-sky-300'
                     : 'bg-white hover:bg-slate-50/80 border-slate-200 hover:border-slate-300 shadow-2xs'
@@ -143,7 +145,7 @@ export const DocumentsCatalogTab: React.FC<DocumentsCatalogTabProps> = ({
                     )}
                   </div>
                 )}
-              </div>
+              </button>
             )
           })
         )}

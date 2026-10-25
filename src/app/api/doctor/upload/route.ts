@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { SESSION_COOKIE_NAME, verifySessionToken } from '@/features/auth/lib/session'
 import { processAndStoreDocument } from '@/features/documents/lib/ai-processor'
+
+export const maxDuration = 120
+
+const UploadSchema = z.object({
+  fileBase64: z.string().min(50, 'Липсват файлови данни.').max(7_000_000, 'Файлът надвишава допустимия размер.'),
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
+  fileName: z.string().optional(),
+  autoCreatePatientNote: z.boolean().optional(),
+})
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
@@ -10,20 +20,22 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       return NextResponse.json({ error: 'Неоторизиран достъп.' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { fileBase64, mimeType, fileName, autoCreatePatientNote } = body as {
-      fileBase64?: string
-      mimeType?: string
-      fileName?: string
-      autoCreatePatientNote?: boolean
+    let rawBody: unknown
+    try {
+      rawBody = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Невалиден JSON формат.' }, { status: 400 })
     }
 
-    if (!fileBase64 || !mimeType) {
+    const parsed = UploadSchema.safeParse(rawBody)
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Липсват файл или MIME тип на документа.' },
+        { error: parsed.error.issues[0]?.message || 'Невалидни данни за качване.' },
         { status: 400 }
       )
     }
+
+    const { fileBase64, mimeType, fileName, autoCreatePatientNote } = parsed.data
 
     const result = await processAndStoreDocument({
       fileBase64,

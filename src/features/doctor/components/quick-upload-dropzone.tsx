@@ -89,7 +89,16 @@ export const QuickUploadDropzone: React.FC<QuickUploadDropzoneProps> = ({
       />
 
       <div
+        role="button"
+        tabIndex={0}
+        aria-label={t.doctor.upload.dropTitle}
         onClick={() => !isUploading && fileInputRef.current?.click()}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !isUploading) {
+            e.preventDefault()
+            fileInputRef.current?.click()
+          }
+        }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -119,7 +128,7 @@ export const QuickUploadDropzone: React.FC<QuickUploadDropzoneProps> = ({
             <span className="text-xs font-medium text-slate-800 line-clamp-1">
               {t.doctor.upload.dropTitle}
             </span>
-            <span className="text-[10px] text-slate-400 mt-0.5">
+            <span className="text-[11px] text-slate-600 mt-0.5">
               {t.doctor.upload.dropSubtitle}
             </span>
           </>
