@@ -32,7 +32,7 @@ export const getChatSession = async (sessionId: string): Promise<ChatSession | n
     return rows[0] || null
   } catch (error) {
     console.error(`Error fetching chat session ${sessionId}:`, error)
-    return null
+    throw new Error('Грешка при извличане на чат сесията.')
   }
 }
 

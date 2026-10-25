@@ -13,10 +13,11 @@ import {
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     // 1. Защита на ниво API Route (Defense in Depth)
-    await requireAnyAuthenticatedRole()
+    const session = await requireAnyAuthenticatedRole()
+    const userIdentifier = `${session.role}:${session.createdAt || 'session'}`
 
-    // 2. Rate Limiting (максимум 20 гласови транскрипции на минута)
-    const rateCheck = await checkScopedRateLimit('transcribe', 20, 60_000)
+    // 2. Rate Limiting (максимум 20 гласови транскрипции на минута, обвързани със сесията)
+    const rateCheck = await checkScopedRateLimit('transcribe', 20, 60_000, userIdentifier)
     if (!rateCheck.allowed) {
       return NextResponse.json(
         { error: 'Твърде много гласови заявки. Моля, изчакайте минута.' },
@@ -24,8 +25,24 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       )
     }
 
-    // 3. Валидация на входните данни
-    const body: unknown = await request.json()
+    // 3. Проверка на размера на тялото преди JSON парсване (DoS защита)
+    const contentLength = request.headers.get('content-length')
+    const MAX_AUDIO_PAYLOAD_BYTES = 5 * 1024 * 1024 // 5 MB
+    if (contentLength && parseInt(contentLength, 10) > MAX_AUDIO_PAYLOAD_BYTES) {
+      return NextResponse.json(
+        { error: 'Аудио записът надвишава допустимия размер от 5MB.' },
+        { status: 413 }
+      )
+    }
+
+    // 4. Валидация на входните данни
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Невалиден JSON формат.' }, { status: 400 })
+    }
+
     const parsed = TranscribeRequestSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
@@ -34,7 +51,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       )
     }
 
-    // 4. Извикване на Whisper през OpenRouter
+    // 5. Извикване на Whisper през OpenRouter
     const result = await transcribeAudioWithWhisper(parsed.data)
 
     return NextResponse.json(result, { status: 200 })

@@ -20,6 +20,16 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       return NextResponse.json({ error: 'Неоторизиран достъп.' }, { status: 401 })
     }
 
+    // Проверка на размера на тялото преди JSON парсване (DoS защита)
+    const contentLength = request.headers.get('content-length')
+    const MAX_UPLOAD_BODY_BYTES = 10 * 1024 * 1024 // 10 MB
+    if (contentLength && parseInt(contentLength, 10) > MAX_UPLOAD_BODY_BYTES) {
+      return NextResponse.json(
+        { error: 'Файлът надвишава максимално допустимия размер (макс. 5MB бинарни данни).' },
+        { status: 413 }
+      )
+    }
+
     let rawBody: unknown
     try {
       rawBody = await request.json()
@@ -41,7 +51,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       fileBase64,
       mimeType,
       fileName,
-      uploadedByRole: 'doctor',
+      uploadedByRole: session.role,
       autoCreatePatientNote: autoCreatePatientNote ?? true,
     })
 

@@ -41,6 +41,8 @@ export const requireAnyAuthenticatedRole = async (): Promise<SessionPayload> => 
  * Лек in-memory rate limiter за AI и мултимедийни API маршрути
  */
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+let lastRateLimitCleanup = 0
+const CLEANUP_INTERVAL_MS = 60_000
 
 export const checkScopedRateLimit = async (
   scope: string,
@@ -54,10 +56,13 @@ export const checkScopedRateLimit = async (
   const key = `${scope}:${identity ?? clientIp}`
   const now = Date.now()
 
-  // Почистване на изтекли записи за предпазване от изтичане на памет
-  for (const [k, v] of rateLimitMap) {
-    if (now > v.resetAt) {
-      rateLimitMap.delete(k)
+  // Периодично почистване на изтекли записи за предпазване от изтичане на памет (веднъж на 60s)
+  if (now - lastRateLimitCleanup > CLEANUP_INTERVAL_MS) {
+    lastRateLimitCleanup = now
+    for (const [k, v] of rateLimitMap) {
+      if (now > v.resetAt) {
+        rateLimitMap.delete(k)
+      }
     }
   }
 

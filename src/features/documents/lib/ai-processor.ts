@@ -23,7 +23,7 @@ const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 const ExtractedJsonSchema = z.object({
   title_bg: z.string().trim().min(1).max(300),
   title_el: z.string().trim().min(1).max(300),
-  doc_date: z.string().regex(ISO_DATE_REGEX).optional().catch(undefined),
+  doc_date: z.string().regex(ISO_DATE_REGEX).nullish().transform((v) => v ?? null),
   category: z.string().trim().catch('Други'),
   summary_el: z.string().trim().min(1).max(3000),
   patient_summary_bg: z.string().trim().optional().default(''),
@@ -46,14 +46,14 @@ const parseJsonObject = (raw: string): unknown => {
   return JSON.parse(cleaned.slice(start, end + 1))
 }
 
-const buildMultimodalPrompt = (fallbackDate: string): string => `
+const buildMultimodalPrompt = (): string => `
 You are a senior clinical oncologist analyzing a medical record or prescription (image or PDF).
 Language may be Bulgarian, Greek, English, or Latin.
 Return EXACTLY ONE JSON object with no markdown:
 {
   "title_bg": "кратко заглавие на български (напр. Епикриза, Рецепта за терапия, Хистология)",
   "title_el": "ίδιος τίτλος στα ελληνικά (π.χ. Ιστολογική Έκθεση, Συνταγή Θεραπείας)",
-  "doc_date": "YYYY-MM-DD (ако липсва: ${fallbackDate})",
+  "doc_date": "YYYY-MM-DD (exact date of the medical examination/report found in the document text, or null if no date is present)",
   "category": "Хистология | Образна диагностика | Туморни маркери | Епикризи | Лабораторни изследвания | Други",
   "summary_el": "3-6 sentences in professional medical Greek for the doctor: diagnosis, staging, therapy details, markers, recommendations",
   "patient_summary_bg": "топло, емпатично и ясно резюме на разбираем български език за пациента и семейството (какво означава документът, какви са предписанията за прием на лекарства, диета или упражнения)",
@@ -120,7 +120,7 @@ export const processAndStoreDocument = async (
       reasoning_effort: 'low',
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: buildMultimodalPrompt(today) },
+        { role: 'system', content: buildMultimodalPrompt() },
         { role: 'user', content: contentParts as unknown as string },
       ],
     })

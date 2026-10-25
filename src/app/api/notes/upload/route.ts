@@ -10,8 +10,24 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     // 1. Проверка на сесията (само лекар и админ)
     await requireRoles(['doctor', 'admin'] as const)
 
-    // 2. Валидация на тялото на заявката
-    const body: unknown = await request.json()
+    // 2. Проверка на размера на тялото преди JSON парсване (DoS защита)
+    const contentLength = request.headers.get('content-length')
+    const MAX_UPLOAD_BODY_BYTES = 8 * 1024 * 1024 // 8 MB
+    if (contentLength && parseInt(contentLength, 10) > MAX_UPLOAD_BODY_BYTES) {
+      return NextResponse.json(
+        { error: 'Файлът надвишава максимално допустимия размер от 5MB.' },
+        { status: 413 }
+      )
+    }
+
+    // 3. Валидация на тялото на заявката
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Невалиден JSON формат.' }, { status: 400 })
+    }
+
     const parsed = UploadPrescriptionPayloadSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
@@ -20,13 +36,13 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       )
     }
 
-    // 3. AI обработка на файла (Gemini OCR/PDF анализ + превод + вектор)
+    // 4. AI обработка на файла (Gemini OCR/PDF анализ + превод + вектор)
     const processed = await processPrescriptionFileAI(parsed.data)
 
-    // 4. Запис в Neon
+    // 5. Запис в Neon
     const created = await createDoctorNote(processed)
 
-    // 5. Обновяване на пътищата
+    // 6. Обновяване на пътищата
     revalidatePath('/doctor')
     revalidatePath('/patient')
 
