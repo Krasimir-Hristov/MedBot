@@ -127,6 +127,75 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // 8. Защита на качване на лекарски предписания и файлове (/api/notes/upload)
+  if (pathname.startsWith('/api/notes/upload')) {
+    if (!role) {
+      return NextResponse.json(
+        { error: 'Неоторизиран достъп. Моля, въведете ПИН код.' },
+        { status: 401 }
+      )
+    }
+    if (role !== 'doctor' && role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Нямате лекарски права за качване на предписания.' },
+        { status: 403 }
+      )
+    }
+  }
+
+  // 9. Защита на лекарските бележки и прикрепени файлове (/api/notes/*)
+  // Пациент, лекар и администратор имат достъп до преведените бележки и прикачените файлове за терапия
+  if (pathname.startsWith('/api/notes')) {
+    if (!role) {
+      return NextResponse.json(
+        { error: 'Неоторизиран достъп. Моля, въведете ПИН код.' },
+        { status: 401 }
+      )
+    }
+  }
+
+  // 10. Защита на пациентския чат (/api/chat/patient)
+  if (pathname.startsWith('/api/chat/patient')) {
+    if (!role) {
+      return NextResponse.json(
+        { error: 'Неоторизиран достъп. Моля, въведете ПИН код.' },
+        { status: 401 }
+      )
+    }
+    if (role !== 'patient' && role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Нямате права за пациентския асистент.' },
+        { status: 403 }
+      )
+    }
+  }
+
+  // 11. Защита на лекарските API маршрути (/api/doctor/* и /api/chat/doctor)
+  if (pathname.startsWith('/api/doctor') || pathname.startsWith('/api/chat/doctor')) {
+    if (!role) {
+      return NextResponse.json(
+        { error: 'Неоторизиран достъп. Моля, въведете ПИН код.' },
+        { status: 401 }
+      )
+    }
+    if (role !== 'doctor' && role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Нямате лекарски права за тези операции.' },
+        { status: 403 }
+      )
+    }
+  }
+
+  // 12. Защита на аудио транскрипция API (/api/audio/* и /api/transcribe) - достъпно за всички роли
+  if (pathname.startsWith('/api/audio') || pathname.startsWith('/api/transcribe')) {
+    if (!role) {
+      return NextResponse.json(
+        { error: 'Неоторизиран достъп. Моля, въведете ПИН код.' },
+        { status: 401 }
+      )
+    }
+  }
+
   return NextResponse.next({
     request: {
       headers: requestHeaders,

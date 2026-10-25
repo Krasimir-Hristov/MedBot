@@ -12,8 +12,10 @@ import {
 import { UploadPayloadSchema } from '@/features/admin/schemas'
 import type { UploadApiResponse } from '@/features/admin/types'
 
-// OCR + embedding на един документ може да отнеме десетки секунди
-export const maxDuration = 60
+// OCR (reasoning) + embedding на един документ може да отнеме до ~60s при плътен
+// гръцки скан. 120s дава реален запас пред лимита на платформата, а клиентската
+// опашка ограничава паралелността до 2 едновременни заявки.
+export const maxDuration = 120
 
 const jsonResponse = (body: UploadApiResponse, status: number): NextResponse<UploadApiResponse> =>
   NextResponse.json(body, { status })

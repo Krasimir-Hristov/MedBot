@@ -54,6 +54,9 @@ const getClientSnapshot = (): Locale => {
     if (saved === 'bg' || saved === 'el') {
       return saved
     }
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/doctor')) {
+      return 'el'
+    }
   } catch {
     // Ignore restricted storage
   }

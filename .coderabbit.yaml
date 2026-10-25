@@ -1,12 +1,12 @@
 # ==============================================================================
-# CodeRabbit Configuration for MedScan RAG
+# CodeRabbit Configuration for MedBot
 # ==============================================================================
-version: "2"
-language: "bg-BG"
+version: 2
+language: 'bg-BG'
 early_access: false
 
 reviews:
-  profile: "assertive"
+  profile: 'assertive'
   request_changes_workflow: false
   high_level_summary: true
   poem: false
@@ -16,13 +16,18 @@ reviews:
     enabled: true
     drafts: false
     base_branches:
-      - "main"
-      - "master"
-      - "production"
+      - 'main'
+      - 'master'
+      - 'production'
+
+  # Филтри за изключване на некритични файлове
+  path_filters:
+    - '!**/*.md'
+    - '!docs/**'
 
   # Общи инструкции за преглед на кода, съобразени с правилата на проекта
   instructions: |
-    Вие сте главен софтуерен архитект, ревюиращ двуезичния медицински RAG проект "MedScan RAG" (Български/Гръцки).
+    Вие сте главен софтуерен архитект, ревюиращ двуезичния медицински RAG проект "MedBot" (Български/Гръцки).
     Задължително следете за следните инженерни и архитектурни стандарти:
 
     1. АРХИТЕКТУРА И NO-MIDDLEWARE ПОЛИТИКА:

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, jsonb, vector } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, jsonb, vector, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const medicalDocuments = pgTable("medical_documents", {
@@ -19,9 +19,18 @@ export const medicalDocuments = pgTable("medical_documents", {
 
 export const doctorNotes = pgTable("doctor_notes", {
   id: serial("id").primaryKey(),
+  category: text("category").notNull().default("general"), // 'general' | 'therapy' | 'diet' | 'exercise'
+  titleBg: text("title_bg"),
+  titleEl: text("title_el"),
   noteEl: text("note_el").notNull(),
   noteBg: text("note_bg").notNull(),
   doctorName: text("doctor_name").default("Д-р Специалист"),
+  attachmentBase64: text("attachment_base64"),
+  attachmentMime: text("attachment_mime"), // 'image/jpeg' | 'application/pdf'
+  attachmentName: text("attachment_name"),
+  extractedText: text("extracted_text"),
+  semanticText: text("semantic_text"),
+  embedding: vector("embedding", { dimensions: 1536 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -42,6 +51,32 @@ export const chatMessages = pgTable("chat_messages", {
   citations: jsonb("citations").$type<Array<{ id: number; title: string }>>().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const dossierSummaries = pgTable("dossier_summaries", {
+  id: serial("id").primaryKey(),
+  contentEl: text("content_el").notNull(), // Markdown с цитати
+  documentIds: jsonb("document_ids").$type<number[]>().notNull().default([]),
+  documentCount: integer("document_count").notNull(),
+  truncatedDocCount: integer("truncated_doc_count").notNull().default(0),
+  model: text("model").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const patientGuidelineItems = pgTable("patient_guideline_items", {
+  id: serial("id").primaryKey(),
+  category: text("category").notNull(), // 'diet' | 'exercise' | 'therapy' | 'general'
+  textEl: text("text_el").notNull(), // редактируем от лекаря
+  rationaleEl: text("rationale_el"), // обяснение с цитати – само за лекаря
+  source: text("source").notNull().default("ai"), // 'ai' | 'doctor'
+  status: text("status").notNull().default("pending"), // 'pending' | 'approved' | 'rejected'
+  sortOrder: integer("sort_order").notNull().default(0),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type DossierSummary = typeof dossierSummaries.$inferSelect;
+export type PatientGuidelineItem = typeof patientGuidelineItems.$inferSelect;
 
 // Zod Schemas for Validation
 export const insertMedicalDocumentSchema = createInsertSchema(medicalDocuments);

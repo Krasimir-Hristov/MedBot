@@ -19,5 +19,12 @@ export const AI_MODELS = {
   embedding: process.env.EMBEDDING_MODEL || "openai/text-embedding-3-small",
   chat: process.env.CHAT_MODEL || "deepseek/deepseek-v4.1-flash",
   fast: process.env.FAST_MODEL || "deepseek/deepseek-v4.1-flash",
+  /** Модел с огромен контекст (1M) за обобщение на цялото досие наведнъж. */
+  longContext: process.env.LONG_CONTEXT_MODEL || "google/gemini-3.8-flash",
+  /**
+   * Модел за транскрипция на глас (диктовка).
+   * ВАЖНО: използва се САМО през `/api/v1/audio/transcriptions` (STT endpoint),
+   * НЕ през `/chat/completions` – там моделът се отхвърля с грешка 400.
+   */
   audio: process.env.AUDIO_MODEL || "openai/whisper-large-v3",
 } as const;
