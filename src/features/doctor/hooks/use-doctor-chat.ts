@@ -128,39 +128,41 @@ export const useDoctorChat = ({
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let accumulated = ''
+        let buffer = ''
 
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
-          const chunk = decoder.decode(value, { stream: true })
-          const lines = chunk.split('\n')
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const payload = JSON.parse(line.slice(6))
-                if (payload.type === 'session' && !activeSessionId) {
-                  setActiveSessionId(payload.sessionId)
-                } else if (payload.type === 'chunk') {
-                  accumulated += payload.text
-                  setStreamingContent(accumulated)
-                } else if (payload.type === 'done') {
-                  const assistantMsg: ChatMessage = {
-                    id: Date.now() + 1,
-                    sessionId: activeSessionId || 'active',
-                    role: 'assistant',
-                    content: accumulated,
-                    citations: payload.citations || [],
-                    createdAt: new Date(),
-                  }
-                  setMessages((prev) => [...prev, assistantMsg])
-                  setStreamingContent('')
-                  setIsThinking(false)
+          for (const rawLine of lines) {
+            const line = rawLine.trim()
+            if (!line.startsWith('data: ')) continue
+            try {
+              const payload = JSON.parse(line.slice(6))
+              if (payload.type === 'session' && !activeSessionId) {
+                setActiveSessionId(payload.sessionId)
+              } else if (payload.type === 'chunk') {
+                accumulated += payload.text
+                setStreamingContent(accumulated)
+              } else if (payload.type === 'done') {
+                const assistantMsg: ChatMessage = {
+                  id: Date.now() + 1,
+                  sessionId: activeSessionId || 'active',
+                  role: 'assistant',
+                  content: accumulated,
+                  citations: payload.citations || [],
+                  createdAt: new Date(),
                 }
-              } catch {
-                // Ignore chunk parse error
+                setMessages((prev) => [...prev, assistantMsg])
+                setStreamingContent('')
+                setIsThinking(false)
               }
+            } catch {
+              // Ignore chunk parse error
             }
           }
         }

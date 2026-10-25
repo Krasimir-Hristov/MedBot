@@ -5,6 +5,7 @@ import { createMedicalEmbedding } from '@/features/admin/lib/ai-pipeline'
 import {
   addChatMessage,
   createChatSession,
+  getChatMessages,
 } from '@/features/doctor/lib/chat-dal'
 import {
   buildDoctorSystemPrompt,
@@ -60,10 +61,11 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       content: cleanMessage,
     })
 
-    // 4. RAG Конвейер
-    const [expandedQuery, allDocs] = await Promise.all([
+    // 4. RAG Конвейер и зареждане на скорошната история на разговора
+    const [expandedQuery, allDocs, existingMessages] = await Promise.all([
       expandMedicalQuery(cleanMessage),
       getDocumentsList(),
+      getChatMessages(activeSessionId),
     ])
 
     const queryEmbedding = await createMedicalEmbedding(expandedQuery)
@@ -73,13 +75,24 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     const retrievedMatches = formatRetrievedMatches(topMatches, locale)
     const systemPrompt = buildDoctorSystemPrompt(locale, catalogIndex, retrievedMatches)
 
-    // 5. Поточна заявка към DeepSeek
+    // Извличаме предходните съобщения (без току-що записаното текущо съобщение),
+    // ограничени до последните 6 съобщения за плавен контекст при последващи въпроси
+    const historyMessages = existingMessages
+      .slice(0, -1)
+      .slice(-6)
+      .map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }))
+
+    // 5. Поточна заявка към DeepSeek с включен контекст от предходните реплики
     const stream = await openrouter.chat.completions.create({
       model: AI_MODELS.chat,
       temperature: 0.2,
       stream: true,
       messages: [
         { role: 'system', content: systemPrompt },
+        ...historyMessages,
         { role: 'user', content: cleanMessage },
       ],
     })

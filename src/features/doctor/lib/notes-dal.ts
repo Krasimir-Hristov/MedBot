@@ -1,15 +1,36 @@
 import 'server-only'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { doctorNotes } from '@/lib/db/schema'
 import type { DoctorNote } from '@/lib/db/schema'
 
-export const getDoctorNotes = async (): Promise<DoctorNote[]> => {
+/**
+ * Връща списък с лекарски бележки с ограничен брой редове (подразбиране: 50).
+ * За оптимизация на мрежовия трафик (egress), тежките колони (attachmentBase64,
+ * embedding, extractedText, semanticText) се заместват с NULL.
+ */
+export const getDoctorNotes = async (limit = 50): Promise<DoctorNote[]> => {
   try {
     return await db
-      .select()
+      .select({
+        id: doctorNotes.id,
+        category: doctorNotes.category,
+        titleBg: doctorNotes.titleBg,
+        titleEl: doctorNotes.titleEl,
+        noteEl: doctorNotes.noteEl,
+        noteBg: doctorNotes.noteBg,
+        doctorName: doctorNotes.doctorName,
+        attachmentBase64: sql<string | null>`NULL`.as('attachment_base64'),
+        attachmentMime: doctorNotes.attachmentMime,
+        attachmentName: doctorNotes.attachmentName,
+        extractedText: sql<string | null>`NULL`.as('extracted_text'),
+        semanticText: sql<string | null>`NULL`.as('semantic_text'),
+        embedding: sql<number[] | null>`NULL`.as('embedding'),
+        createdAt: doctorNotes.createdAt,
+      })
       .from(doctorNotes)
       .orderBy(desc(doctorNotes.createdAt))
+      .limit(limit)
   } catch (error) {
     console.error('Error fetching doctor notes:', error)
     throw new Error('Грешка при зареждане на лекарските бележки.')
