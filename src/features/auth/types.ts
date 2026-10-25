@@ -7,6 +7,7 @@ export type AuthErrorCode = 'INVALID_PIN' | 'VALIDATION_ERROR' | 'RATE_LIMITED' 
 export interface SessionPayload extends JWTPayload {
   role: UserRole
   createdAt: number
+  jti?: string
 }
 
 export interface AuthResult {

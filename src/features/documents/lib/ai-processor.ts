@@ -20,10 +20,31 @@ import { doctorNotes } from '@/lib/db/schema'
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
+const isValidCalendarDate = (dateStr: string): boolean => {
+  if (!ISO_DATE_REGEX.test(dateStr)) return false
+  const [yearStr, monthStr, dayStr] = dateStr.split('-')
+  const year = Number(yearStr)
+  const month = Number(monthStr)
+  const day = Number(dayStr)
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  )
+}
+
 const ExtractedJsonSchema = z.object({
   title_bg: z.string().trim().min(1).max(300),
   title_el: z.string().trim().min(1).max(300),
-  doc_date: z.string().regex(ISO_DATE_REGEX).nullish().transform((v) => v ?? null),
+  doc_date: z
+    .string()
+    .trim()
+    .refine(isValidCalendarDate, { message: 'Невалидна календарна дата (очаква се валиден YYYY-MM-DD).' })
+    .nullable()
+    .optional()
+    .transform((v) => v ?? null),
   category: z.string().trim().catch('Други'),
   summary_el: z.string().trim().min(1).max(3000),
   patient_summary_bg: z.string().trim().optional().default(''),
@@ -76,7 +97,6 @@ export const processAndStoreDocument = async (
   input: IngestDocumentInput
 ): Promise<IngestDocumentResult> => {
   try {
-    const today = new Date().toISOString().slice(0, 10)
     const rawBase64 = input.fileBase64.includes(',')
       ? input.fileBase64.split(',')[1]
       : input.fileBase64
@@ -127,7 +147,12 @@ export const processAndStoreDocument = async (
 
     const rawContent = completion.choices[0]?.message?.content ?? ''
     const parsedData = ExtractedJsonSchema.parse(parseJsonObject(rawContent))
-    const docDate = parsedData.doc_date || today
+    if (!parsedData.doc_date) {
+      throw new Error(
+        'Не може да бъде разпозната валидна медицинска дата в документа. Моля, проверете дали датата на изследването или епикризата се чете ясно на скана.'
+      )
+    }
+    const docDate = parsedData.doc_date
 
     const clinicalMeta: DocumentClinicalMetadata = {
       hospital: parsedData.hospital ?? undefined,

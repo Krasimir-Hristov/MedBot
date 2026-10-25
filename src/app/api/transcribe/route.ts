@@ -9,14 +9,17 @@ import {
   transcribeAudioWithWhisper,
   TranscriptionError,
 } from '@/features/voice/lib/transcribe-server'
+import { readBoundedJson, PayloadTooLargeError } from '@/lib/http-payload'
+
+const MAX_AUDIO_PAYLOAD_BYTES = 5 * 1024 * 1024 // 5 MB
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     // 1. Защита на ниво API Route (Defense in Depth)
     const session = await requireAnyAuthenticatedRole()
-    const userIdentifier = `${session.role}:${session.createdAt || 'session'}`
+    const userIdentifier = session.jti || `${session.role}:${session.createdAt || 'session'}`
 
-    // 2. Rate Limiting (максимум 20 гласови транскрипции на минута, обвързани със сесията)
+    // 2. Rate Limiting (максимум 20 гласови транскрипции на минута, обвързани с jti сесията)
     const rateCheck = await checkScopedRateLimit('transcribe', 20, 60_000, userIdentifier)
     if (!rateCheck.allowed) {
       return NextResponse.json(
@@ -25,24 +28,21 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       )
     }
 
-    // 3. Проверка на размера на тялото преди JSON парсване (DoS защита)
-    const contentLength = request.headers.get('content-length')
-    const MAX_AUDIO_PAYLOAD_BYTES = 5 * 1024 * 1024 // 5 MB
-    if (contentLength && parseInt(contentLength, 10) > MAX_AUDIO_PAYLOAD_BYTES) {
-      return NextResponse.json(
-        { error: 'Аудио записът надвишава допустимия размер от 5MB.' },
-        { status: 413 }
-      )
-    }
-
-    // 4. Валидация на входните данни
+    // 3. Поточно прочитане с лимит на реално получените байтове (DoS защита)
     let body: unknown
     try {
-      body = await request.json()
-    } catch {
+      body = await readBoundedJson(request, MAX_AUDIO_PAYLOAD_BYTES)
+    } catch (err) {
+      if (err instanceof PayloadTooLargeError) {
+        return NextResponse.json(
+          { error: 'Аудио записът надвишава допустимия размер от 5MB.' },
+          { status: 413 }
+        )
+      }
       return NextResponse.json({ error: 'Невалиден JSON формат.' }, { status: 400 })
     }
 
+    // 4. Валидация на входните данни
     const parsed = TranscribeRequestSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(

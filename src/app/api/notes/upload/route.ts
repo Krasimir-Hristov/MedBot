@@ -4,30 +4,30 @@ import { requireRoles, AuthError } from '@/features/auth/lib/role-guard'
 import { UploadPrescriptionPayloadSchema } from '@/features/doctor-notes/schemas'
 import { processPrescriptionFileAI, NotePipelineError } from '@/features/doctor-notes/lib/note-ai-pipeline'
 import { createDoctorNote } from '@/features/doctor-notes/dal'
+import { readBoundedJson, PayloadTooLargeError } from '@/lib/http-payload'
+
+const MAX_UPLOAD_BODY_BYTES = 8 * 1024 * 1024 // 8 MB
 
 export const POST = async (request: NextRequest): Promise<NextResponse> => {
   try {
     // 1. Проверка на сесията (само лекар и админ)
     await requireRoles(['doctor', 'admin'] as const)
 
-    // 2. Проверка на размера на тялото преди JSON парсване (DoS защита)
-    const contentLength = request.headers.get('content-length')
-    const MAX_UPLOAD_BODY_BYTES = 8 * 1024 * 1024 // 8 MB
-    if (contentLength && parseInt(contentLength, 10) > MAX_UPLOAD_BODY_BYTES) {
-      return NextResponse.json(
-        { error: 'Файлът надвишава максимално допустимия размер от 5MB.' },
-        { status: 413 }
-      )
-    }
-
-    // 3. Валидация на тялото на заявката
+    // 2. Поточно прочитане с лимит на реално получените байтове (DoS защита)
     let body: unknown
     try {
-      body = await request.json()
-    } catch {
+      body = await readBoundedJson(request, MAX_UPLOAD_BODY_BYTES)
+    } catch (err) {
+      if (err instanceof PayloadTooLargeError) {
+        return NextResponse.json(
+          { error: 'Файлът надвишава максимално допустимия размер от 5MB.' },
+          { status: 413 }
+        )
+      }
       return NextResponse.json({ error: 'Невалиден JSON формат.' }, { status: 400 })
     }
 
+    // 3. Валидация на тялото на заявката
     const parsed = UploadPrescriptionPayloadSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(

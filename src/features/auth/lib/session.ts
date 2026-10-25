@@ -14,11 +14,13 @@ export const createSessionToken = async (role: UserRole): Promise<string> => {
     const key = getSecretKey()
     const now = Math.floor(Date.now() / 1000)
 
+    const jti = crypto.randomUUID()
     const token = await new SignJWT({
       role,
       createdAt: now,
     })
       .setProtectedHeader({ alg: 'HS256' })
+      .setJti(jti)
       .setIssuedAt(now)
       .setExpirationTime(now + SESSION_DURATION_SECONDS)
       .sign(key)
@@ -55,6 +57,7 @@ export const verifySessionToken = async (
       ...payload,
       role,
       createdAt: typeof payload.createdAt === 'number' ? payload.createdAt : Date.now(),
+      jti: typeof payload.jti === 'string' ? payload.jti : undefined,
     }
   } catch {
     // Невалиден или изтекъл токен
