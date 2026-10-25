@@ -40,6 +40,17 @@ CREATE TABLE IF NOT EXISTS doctor_notes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Idempotent column additions for upgrading existing databases from earlier steps
+ALTER TABLE doctor_notes ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'general';
+ALTER TABLE doctor_notes ADD COLUMN IF NOT EXISTS title_bg TEXT;
+ALTER TABLE doctor_notes ADD COLUMN IF NOT EXISTS title_el TEXT;
+ALTER TABLE doctor_notes ADD COLUMN IF NOT EXISTS attachment_base64 TEXT;
+ALTER TABLE doctor_notes ADD COLUMN IF NOT EXISTS attachment_mime TEXT;
+ALTER TABLE doctor_notes ADD COLUMN IF NOT EXISTS attachment_name TEXT;
+ALTER TABLE doctor_notes ADD COLUMN IF NOT EXISTS extracted_text TEXT;
+ALTER TABLE doctor_notes ADD COLUMN IF NOT EXISTS semantic_text TEXT;
+ALTER TABLE doctor_notes ADD COLUMN IF NOT EXISTS embedding vector(1536);
+
 -- 4. Create chat_sessions table (Doctor & Patient history with rename/delete)
 CREATE TABLE IF NOT EXISTS chat_sessions (
   id SERIAL PRIMARY KEY,
