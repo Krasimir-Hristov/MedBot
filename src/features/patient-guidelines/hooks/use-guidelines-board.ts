@@ -12,12 +12,14 @@ import {
 interface UseGuidelinesBoardArgs {
   initialItems: PatientGuidelineItemEntity[]
   errorMessage: string
+  successMessageText?: string
   onPublishedSuccess?: () => void
 }
 
 export const useGuidelinesBoard = ({
   initialItems,
   errorMessage,
+  successMessageText = 'Успешно публикувахте насоките за пациента!',
   onPublishedSuccess,
 }: UseGuidelinesBoardArgs) => {
   const [items, setItems] = useState<PatientGuidelineItemEntity[]>(initialItems)
@@ -79,10 +81,23 @@ export const useGuidelinesBoard = ({
   const updateItemText = useCallback(
     async (id: number, textEl: string) => {
       clearMessages()
+      let previousText: string | undefined
       // Optimistic update
-      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, textEl } : item)))
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== id) return item
+          previousText = item.textEl
+          return { ...item, textEl }
+        })
+      )
       const res = await updateGuidelineAction({ id, textEl })
       if (!res.success) {
+        if (previousText !== undefined) {
+          const restore = previousText
+          setItems((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, textEl: restore } : item))
+          )
+        }
         setError(res.error || errorMessage)
       }
     },
@@ -92,10 +107,23 @@ export const useGuidelinesBoard = ({
   const setItemStatus = useCallback(
     async (id: number, status: GuidelineStatus) => {
       clearMessages()
+      let previousStatus: GuidelineStatus | undefined
       // Optimistic update
-      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)))
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== id) return item
+          previousStatus = item.status
+          return { ...item, status }
+        })
+      )
       const res = await updateGuidelineAction({ id, status })
       if (!res.success) {
+        if (previousStatus !== undefined) {
+          const restore = previousStatus
+          setItems((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, status: restore } : item))
+          )
+        }
         setError(res.error || errorMessage)
       }
     },
@@ -105,15 +133,23 @@ export const useGuidelinesBoard = ({
   const deleteItem = useCallback(
     async (id: number) => {
       clearMessages()
-      const previous = items
-      setItems((prev) => prev.filter((item) => item.id !== id))
+      let deletedItem: PatientGuidelineItemEntity | undefined
+      setItems((prev) => {
+        deletedItem = prev.find((item) => item.id === id)
+        return prev.filter((item) => item.id !== id)
+      })
       const res = await deleteGuidelineAction(id)
       if (!res.success) {
-        setItems(previous)
+        if (deletedItem) {
+          const itemToRestore = deletedItem
+          setItems((prev) =>
+            prev.some((item) => item.id === id) ? prev : [itemToRestore, ...prev]
+          )
+        }
         setError(res.error || errorMessage)
       }
     },
-    [clearMessages, errorMessage, items]
+    [clearMessages, errorMessage]
   )
 
   const openPreview = useCallback(async () => {
@@ -149,7 +185,7 @@ export const useGuidelinesBoard = ({
   }, [])
 
   const confirmPublish = useCallback(async () => {
-    if (!previewItems || previewItems.length === 0) return
+    if (isPublishing || !previewItems || previewItems.length === 0) return
     setIsPublishing(true)
     clearMessages()
 
@@ -177,7 +213,7 @@ export const useGuidelinesBoard = ({
       )
 
       setPreviewItems(null)
-      setSuccessMessage('Успешно публикувахте насоките за пациента!')
+      setSuccessMessage(successMessageText)
       onPublishedSuccess?.()
     } catch (err) {
       console.error('Failed to publish guidelines:', err)
@@ -185,7 +221,7 @@ export const useGuidelinesBoard = ({
     } finally {
       setIsPublishing(false)
     }
-  }, [clearMessages, errorMessage, onPublishedSuccess, previewItems])
+  }, [clearMessages, errorMessage, isPublishing, onPublishedSuccess, previewItems, successMessageText])
 
   const approvedCount = items.filter((i) => i.status === 'approved').length
 

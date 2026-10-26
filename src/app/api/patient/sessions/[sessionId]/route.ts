@@ -5,6 +5,7 @@ import {
   getPatientChatMessages,
   renamePatientChatSession,
 } from '@/features/patient/dal'
+import { PatientSessionUpdateSchema } from '@/features/patient/schemas'
 
 interface RouteContext {
   params: Promise<{ sessionId: string }>
@@ -46,23 +47,32 @@ export const PATCH = async (
     }
 
     const { sessionId } = await context.params
-    const body: unknown = await request.json()
-    if (
-      typeof body !== 'object' ||
-      body === null ||
-      !('title' in body) ||
-      typeof (body as { title: unknown }).title !== 'string'
-    ) {
-      return NextResponse.json({ error: 'Невалидно заглавие.' }, { status: 400 })
+
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Невалиден JSON формат.' }, { status: 400 })
     }
 
-    const title = (body as { title: string }).title.trim()
-    if (!title) {
-      return NextResponse.json({ error: 'Заглавието не може да бъде празно.' }, { status: 400 })
+    const parsed = PatientSessionUpdateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Невалидно заглавие.' },
+        { status: 400 }
+      )
     }
 
-    const updated = await renamePatientChatSession(sessionId, title)
-    return NextResponse.json({ session: updated })
+    try {
+      const updated = await renamePatientChatSession(sessionId, parsed.data.title)
+      return NextResponse.json({ session: updated })
+    } catch (renameErr) {
+      const msg = renameErr instanceof Error ? renameErr.message : ''
+      if (msg.includes('намерена') || msg.includes('not found')) {
+        return NextResponse.json({ error: 'Чат сесията не е намерена.' }, { status: 404 })
+      }
+      throw renameErr
+    }
   } catch (error) {
     console.error('Error renaming patient session:', error)
     return NextResponse.json(
@@ -84,9 +94,16 @@ export const DELETE = async (
     }
 
     const { sessionId } = await context.params
-    await deletePatientChatSession(sessionId)
-
-    return NextResponse.json({ success: true })
+    try {
+      await deletePatientChatSession(sessionId)
+      return NextResponse.json({ success: true })
+    } catch (deleteErr) {
+      const msg = deleteErr instanceof Error ? deleteErr.message : ''
+      if (msg.includes('намерена') || msg.includes('not found')) {
+        return NextResponse.json({ error: 'Чат сесията не е намерена.' }, { status: 404 })
+      }
+      throw deleteErr
+    }
   } catch (error) {
     console.error('Error deleting patient session:', error)
     return NextResponse.json(

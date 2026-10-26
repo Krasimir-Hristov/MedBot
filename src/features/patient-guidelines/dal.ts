@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, asc, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { patientGuidelineItems } from '@/lib/db/schema'
 import type { GuidelineCategory, GuidelineSource, GuidelineStatus } from './constants'
@@ -31,8 +31,8 @@ export const listGuidelineItems = async (): Promise<PatientGuidelineItemEntity[]
 
     return rows.map(mapRow)
   } catch (error) {
-    console.error('Error fetching guideline items:', error)
-    return []
+    console.error('Error listing guideline items:', error)
+    throw new Error('Грешка при зареждане на насоките за пациента.')
   }
 }
 
@@ -46,7 +46,7 @@ export const createGuidelineItem = async (
         category: input.category,
         textEl: input.textEl,
         rationaleEl: input.rationaleEl ?? null,
-        source: input.source ?? 'doctor',
+        source: input.source,
         status: input.status ?? 'approved',
         sortOrder: input.sortOrder ?? 0,
       })
@@ -69,7 +69,10 @@ export const updateGuidelineItem = async (
     const valuesToUpdate: Partial<typeof patientGuidelineItems.$inferInsert> = {
       updatedAt: new Date(),
     }
-    if (input.textEl !== undefined) valuesToUpdate.textEl = input.textEl
+    if (input.textEl !== undefined) {
+      valuesToUpdate.textEl = input.textEl
+      valuesToUpdate.publishedAt = null
+    }
     if (input.status !== undefined) valuesToUpdate.status = input.status
     if (input.category !== undefined) valuesToUpdate.category = input.category
 
@@ -105,8 +108,7 @@ export const replacePendingAiGuidelines = async (
   items: Array<{ category: GuidelineCategory; textEl: string; rationaleEl?: string | null }>
 ): Promise<PatientGuidelineItemEntity[]> => {
   try {
-    // 1. Delete only pending AI items (preserves approved, rejected, and doctor-created items)
-    await db
+    const deleteQuery = db
       .delete(patientGuidelineItems)
       .where(
         and(
@@ -115,9 +117,8 @@ export const replacePendingAiGuidelines = async (
         )
       )
 
-    // 2. Insert new pending items
     if (items.length > 0) {
-      await db.insert(patientGuidelineItems).values(
+      const insertQuery = db.insert(patientGuidelineItems).values(
         items.map((item, idx) => ({
           category: item.category,
           textEl: item.textEl,
@@ -127,6 +128,9 @@ export const replacePendingAiGuidelines = async (
           sortOrder: idx,
         }))
       )
+      await db.batch([deleteQuery, insertQuery])
+    } else {
+      await deleteQuery
     }
 
     return await listGuidelineItems()
@@ -141,13 +145,18 @@ export const getApprovedGuidelineItems = async (): Promise<PatientGuidelineItemE
     const rows = await db
       .select()
       .from(patientGuidelineItems)
-      .where(eq(patientGuidelineItems.status, 'approved'))
+      .where(
+        and(
+          eq(patientGuidelineItems.status, 'approved'),
+          isNull(patientGuidelineItems.publishedAt)
+        )
+      )
       .orderBy(asc(patientGuidelineItems.category), asc(patientGuidelineItems.sortOrder))
 
     return rows.map(mapRow)
   } catch (error) {
     console.error('Error fetching approved guideline items:', error)
-    return []
+    throw new Error('Грешка при зареждане на одобрените насоки.')
   }
 }
 
@@ -160,5 +169,6 @@ export const markGuidelinesAsPublished = async (ids: number[]): Promise<void> =>
       .where(inArray(patientGuidelineItems.id, ids))
   } catch (error) {
     console.error('Error marking guidelines as published:', error)
+    throw new Error('Грешка при маркиране на насоките като публикувани.')
   }
 }

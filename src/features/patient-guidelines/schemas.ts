@@ -4,7 +4,7 @@ import { GUIDELINE_CATEGORIES, GUIDELINE_STATUSES } from './constants'
 export const AiGuidelineItemSchema = z.object({
   category: z.enum(GUIDELINE_CATEGORIES),
   text_el: z.string().min(3),
-  rationale_el: z.string().optional(),
+  rationale_el: z.string().nullish().transform((v) => v ?? undefined),
 })
 
 export const AiGuidelinesResponseSchema = z.object({
@@ -23,6 +23,8 @@ export const UpdateGuidelineSchema = z.object({
   textEl: z.string().min(2).optional(),
   status: z.enum(GUIDELINE_STATUSES).optional(),
 })
+
+export const DeleteGuidelineIdSchema = z.number().int().positive('Невалиден идентификатор.')
 
 export const CategoryPreviewItemSchema = z.object({
   category: z.enum(GUIDELINE_CATEGORIES),

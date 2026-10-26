@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { useTranslation } from '@/features/i18n'
 import type { ChatSession } from '@/lib/db/schema'
 import type { PatientChatMessage, PatientPortalData } from '../types'
@@ -23,12 +23,18 @@ export const PatientPortalShell: React.FC<PatientPortalShellProps> = ({ initialD
   const [isStreaming, setIsStreaming] = useState(false)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
+  const activeSessionIdRef = useRef(activeSessionId)
+  useEffect(() => {
+    activeSessionIdRef.current = activeSessionId
+  }, [activeSessionId])
+
   const handleSelectSession = async (sessionId: string) => {
+    if (isStreaming || sessionId === activeSessionId) return
     try {
-      setActiveSessionId(sessionId)
       const res = await fetch(`/api/patient/sessions/${sessionId}`)
       if (res.ok) {
         const data = (await res.json()) as { messages?: PatientChatMessage[] }
+        setActiveSessionId(sessionId)
         setMessages(data.messages || [])
       }
     } catch (err) {
@@ -37,6 +43,7 @@ export const PatientPortalShell: React.FC<PatientPortalShellProps> = ({ initialD
   }
 
   const handleCreateNewSession = async () => {
+    if (isStreaming) return
     try {
       const res = await fetch('/api/patient/sessions', {
         method: 'POST',
@@ -98,6 +105,7 @@ export const PatientPortalShell: React.FC<PatientPortalShellProps> = ({ initialD
   const handleSendMessage = async (userText: string) => {
     if (!userText.trim() || isStreaming) return
 
+    const targetSessionId = activeSessionId
     const newMessages: PatientChatMessage[] = [
       ...messages,
       { role: 'user', content: userText.trim() },
@@ -112,7 +120,7 @@ export const PatientPortalShell: React.FC<PatientPortalShellProps> = ({ initialD
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userText.trim(),
-          sessionId: activeSessionId,
+          sessionId: targetSessionId,
           locale,
         }),
       })
@@ -135,27 +143,35 @@ export const PatientPortalShell: React.FC<PatientPortalShellProps> = ({ initialD
         if (done) break
         const chunk = decoder.decode(value, { stream: true })
         fullAssistantText += chunk
-        setStreamingResponse(fullAssistantText)
+        if (activeSessionIdRef.current === targetSessionId) {
+          setStreamingResponse(fullAssistantText)
+        }
       }
 
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: fullAssistantText.trim() },
-      ])
+      if (activeSessionIdRef.current === targetSessionId) {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: fullAssistantText.trim() },
+        ])
+      }
     } catch (err) {
       console.error('Chat error:', err)
       const errorMsg =
         err instanceof Error ? err.message : 'Възникна временна грешка.'
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `${locale === 'el' ? 'Σφάλμα σύνδεσης:' : 'Затруднение при връзката:'} ${errorMsg}.`,
-        },
-      ])
+      if (activeSessionIdRef.current === targetSessionId) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `${locale === 'el' ? 'Σφάλμα σύνδεσης:' : 'Затруднение при връзката:'} ${errorMsg}.`,
+          },
+        ])
+      }
     } finally {
+      if (activeSessionIdRef.current === targetSessionId) {
+        setStreamingResponse('')
+      }
       setIsStreaming(false)
-      setStreamingResponse('')
     }
   }
 

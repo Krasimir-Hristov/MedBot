@@ -64,6 +64,7 @@ export const useDossierSummary = ({
       let buffer = ''
       let accumulated = ''
       let failed: string | null = null
+      let receivedTerminalEvent = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -88,12 +89,28 @@ export const useDossierSummary = ({
             accumulated += payload.text
             setStreamingContent(accumulated)
           } else if (payload.type === 'done' && payload.summary) {
+            receivedTerminalEvent = true
             setSummary(payload.summary)
-            setStaleness({ newCount: 0, removedCount: 0 })
+            try {
+              const stateRes = await fetch('/api/doctor/summary')
+              if (stateRes.ok) {
+                const stateData = (await stateRes.json()) as { staleness?: SummaryStaleness }
+                if (stateData.staleness) {
+                  setStaleness(stateData.staleness)
+                }
+              }
+            } catch {
+              setStaleness({ newCount: 0, removedCount: 0 })
+            }
           } else if (payload.type === 'error') {
+            receivedTerminalEvent = true
             failed = payload.message || errorMessage
           }
         }
+      }
+
+      if (!receivedTerminalEvent && !failed) {
+        failed = errorMessage
       }
 
       if (failed) setError(failed)

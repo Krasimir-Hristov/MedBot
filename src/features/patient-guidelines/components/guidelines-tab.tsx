@@ -41,6 +41,7 @@ export const GuidelinesTab: React.FC<GuidelinesTabProps> = ({
   } = useGuidelinesBoard({
     initialItems,
     errorMessage: t.doctor.guidelines.error,
+    successMessageText: t.doctor.guidelines.sent,
     onPublishedSuccess,
   })
 

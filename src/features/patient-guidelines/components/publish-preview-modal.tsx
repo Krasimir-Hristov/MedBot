@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useTranslation } from '@/features/i18n'
 import { X, Loader2, Sparkles, Send } from 'lucide-react'
 import type { CategoryPreviewItem } from '../types'
@@ -21,17 +21,40 @@ export const PublishPreviewModal: React.FC<PublishPreviewModalProps> = ({
   onConfirm,
 }) => {
   const { t } = useTranslation()
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (!dialog.open) {
+      dialog.showModal()
+    }
+  }, [])
 
   if (!isOpen || !items) return null
 
+  const handleCancel = (e: React.SyntheticEvent) => {
+    e.preventDefault()
+    if (!isPublishing) {
+      onClose()
+    }
+  }
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
+    if (e.target === dialogRef.current && !isPublishing) {
+      onClose()
+    }
+  }
+
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      ref={dialogRef}
+      onCancel={handleCancel}
+      onClick={handleBackdropClick}
       aria-labelledby="preview-modal-title"
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 m-auto z-50 p-4 max-w-2xl w-full bg-transparent backdrop:bg-slate-900/60 backdrop:backdrop-blur-xs motion-safe:animate-in motion-safe:fade-in duration-200 outline-none"
     >
-      <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[88vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-3xl w-full max-h-[88vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
         {/* Header */}
         <header className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-sky-50/60">
           <div className="flex items-center gap-2.5">
@@ -128,6 +151,6 @@ export const PublishPreviewModal: React.FC<PublishPreviewModalProps> = ({
           </button>
         </footer>
       </div>
-    </div>
+    </dialog>
   )
 }

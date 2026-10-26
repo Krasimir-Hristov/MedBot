@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE_NAME, verifySessionToken } from '@/features/auth/lib/session'
 import { createPatientChatSession, getPatientChatSessions } from '@/features/patient/dal'
+import { PatientSessionCreateSchema } from '@/features/patient/schemas'
 
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value
@@ -29,11 +30,15 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       return NextResponse.json({ error: 'Неоторизиран достъп.' }, { status: 401 })
     }
 
-    const body: unknown = await request.json().catch(() => ({}))
-    const title =
-      typeof body === 'object' && body !== null && 'title' in body && typeof (body as { title: unknown }).title === 'string'
-        ? (body as { title: string }).title.trim() || 'Нов разговор'
-        : 'Нов разговор'
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      body = {}
+    }
+
+    const parsed = PatientSessionCreateSchema.safeParse(body)
+    const title = parsed.success ? parsed.data.title : 'Нов разговор'
 
     const newSession = await createPatientChatSession(title)
     return NextResponse.json({ session: newSession }, { status: 201 })

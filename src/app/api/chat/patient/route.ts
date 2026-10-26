@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AI_MODELS, openrouter } from '@/lib/openrouter'
-import { requireRoles, checkScopedRateLimit } from '@/features/auth/lib/role-guard'
+import { requireRoles, checkScopedRateLimit, AuthError } from '@/features/auth/lib/role-guard'
 import { getRagContextBundle } from '@/features/rag'
 import { PatientChatRequestSchema } from '@/features/patient/schemas'
 import { buildPatientSystemPrompt } from '@/features/patient/lib/patient-prompts'
-import { getPatientChatMessages, savePatientChatTurn } from '@/features/patient/dal'
+import { getPatientChatMessages, getPatientChatSessionById, savePatientChatTurn } from '@/features/patient/dal'
 
 export const POST = async (request: NextRequest): Promise<Response> => {
   try {
     // 1. Проверка на правата (пациент или админ)
-    await requireRoles(['patient', 'admin'] as const)
+    const session = await requireRoles(['patient', 'admin'] as const)
 
     // 2. Rate limit
-    const rateCheck = await checkScopedRateLimit('patient-chat', 25, 60_000)
+    const userIdentifier = session.jti || `${session.role}:${session.createdAt || 'session'}`
+    const rateCheck = await checkScopedRateLimit('patient-chat', 25, 60_000, userIdentifier)
     if (!rateCheck.allowed) {
       return NextResponse.json(
         { error: 'Твърде много въпроси за кратко време. Моля, изчакайте минута.' },
@@ -21,7 +22,13 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     }
 
     // 3. Валидация на въпроса
-    const body: unknown = await request.json()
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Невалиден JSON формат.' }, { status: 400 })
+    }
+
     const parsed = PatientChatRequestSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
@@ -31,30 +38,54 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     }
 
     const { message, sessionId, locale } = parsed.data
+
+    // 4. Проверка дали сесията съществува и принадлежи на пациент
+    const sessionRecord = await getPatientChatSessionById(sessionId)
+    if (!sessionRecord) {
+      return NextResponse.json(
+        { error: 'Чат сесията не съществува или нямате достъп до нея.' },
+        { status: 404 }
+      )
+    }
+
     const cookieLocale = request.cookies.get('medbot_locale')?.value
     const effectiveLocale = (locale || (cookieLocale === 'el' ? 'el' : 'bg')) as 'bg' | 'el'
 
-    // 4. Извличане на RAG контекст (документи + лекарски бележки)
+    // 5. Извличане на RAG контекст (документи + лекарски бележки)
     const ragContext = await getRagContextBundle(message)
     const systemPrompt = buildPatientSystemPrompt(ragContext, effectiveLocale)
 
-    // 5. Зареждане на последните съобщения за плавен диалог
+    // 6. Зареждане на последните съобщения за плавен диалог
     const history = await getPatientChatMessages(sessionId)
     const recentHistory = history.slice(-6).map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     }))
 
-    const stream = await openrouter.chat.completions.create({
-      model: AI_MODELS.chat,
-      temperature: 0.3,
-      stream: true,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...recentHistory,
-        { role: 'user', content: message },
-      ],
-    })
+    const abortController = new AbortController()
+    let cleanedUp = false
+    const onAbort = () => abortController.abort()
+    request.signal.addEventListener('abort', onAbort)
+
+    const cleanup = () => {
+      if (cleanedUp) return
+      cleanedUp = true
+      request.signal.removeEventListener('abort', onAbort)
+    }
+
+    const stream = await openrouter.chat.completions.create(
+      {
+        model: AI_MODELS.chat,
+        temperature: 0.3,
+        stream: true,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...recentHistory,
+          { role: 'user', content: message },
+        ],
+      },
+      { signal: abortController.signal }
+    )
 
     let accumulatedText = ''
     const encoder = new TextEncoder()
@@ -69,16 +100,21 @@ export const POST = async (request: NextRequest): Promise<Response> => {
               controller.enqueue(encoder.encode(delta))
             }
           }
+          cleanup()
           controller.close()
 
-          // След завършване на стрийминга записваме въпроса и отговора в базата
           if (accumulatedText.trim()) {
             await savePatientChatTurn(sessionId, message, accumulatedText.trim())
           }
         } catch (streamError) {
+          cleanup()
           console.error('Error during patient chat stream:', streamError)
           controller.error(streamError)
         }
+      },
+      cancel() {
+        abortController.abort()
+        cleanup()
       },
     })
 
@@ -89,9 +125,10 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       },
     })
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
     console.error('Error in /api/chat/patient:', error)
-    const message =
-      error instanceof Error ? error.message : 'Възникна грешка при свързване с асистента.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: 'Възникна грешка при обработка на въпроса.' }, { status: 500 })
   }
 }

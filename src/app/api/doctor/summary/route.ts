@@ -12,15 +12,19 @@ export const maxDuration = 300
 
 const SUMMARY_MAX_TOKENS = 12_000
 
-const isDoctorSession = async (request: NextRequest): Promise<boolean> => {
+const getDoctorSession = async (request: NextRequest) => {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value
   const session = await verifySessionToken(token)
-  return Boolean(session && (session.role === 'doctor' || session.role === 'admin'))
+  if (!session || (session.role !== 'doctor' && session.role !== 'admin')) {
+    return null
+  }
+  return session
 }
 
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
   try {
-    if (!(await isDoctorSession(request))) {
+    const session = await getDoctorSession(request)
+    if (!session) {
       return NextResponse.json({ error: 'Неоторизиран достъп.' }, { status: 401 })
     }
     const state = await getDossierSummaryState()
@@ -33,11 +37,13 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
 
 export const POST = async (request: NextRequest): Promise<Response> => {
   try {
-    if (!(await isDoctorSession(request))) {
+    const session = await getDoctorSession(request)
+    if (!session) {
       return NextResponse.json({ error: 'Неоторизиран достъп.' }, { status: 401 })
     }
 
-    const rate = await checkScopedRateLimit('dossier-summary', 3)
+    const userIdentifier = session.jti || `${session.role}:${session.createdAt || 'session'}`
+    const rate = await checkScopedRateLimit('dossier-summary', 3, 60_000, userIdentifier)
     if (!rate.allowed) {
       return NextResponse.json(
         { error: 'Твърде много заявки за обобщение. Моля, изчакайте минута.' },
@@ -54,17 +60,31 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     const documentIds = docs.map((d) => d.id)
     const systemPrompt = buildSummarySystemPrompt(context.text, docs.length)
 
-    const stream = await openrouter.chat.completions.create({
-      model: AI_MODELS.longContext,
-      temperature: 0.1,
-      max_tokens: SUMMARY_MAX_TOKENS,
-      reasoning_effort: 'low',
-      stream: true,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Generate the complete clinical dossier summary now.' },
-      ],
-    })
+    const abortController = new AbortController()
+    let cleanedUp = false
+    const onAbort = () => abortController.abort()
+    request.signal.addEventListener('abort', onAbort)
+
+    const cleanup = () => {
+      if (cleanedUp) return
+      cleanedUp = true
+      request.signal.removeEventListener('abort', onAbort)
+    }
+
+    const stream = await openrouter.chat.completions.create(
+      {
+        model: AI_MODELS.longContext,
+        temperature: 0.1,
+        max_tokens: SUMMARY_MAX_TOKENS,
+        reasoning_effort: 'low',
+        stream: true,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Generate the complete clinical dossier summary now.' },
+        ],
+      },
+      { signal: abortController.signal }
+    )
 
     const encoder = new TextEncoder()
     let complete = ''
@@ -77,20 +97,30 @@ export const POST = async (request: NextRequest): Promise<Response> => {
 
         try {
           send({ type: 'start', documentCount: docs.length })
+          let lastFinishReason: string | null = null
+
           for await (const chunk of stream) {
-            const text = chunk.choices[0]?.delta?.content || ''
+            const choice = chunk.choices[0]
+            if (choice?.finish_reason) {
+              lastFinishReason = choice.finish_reason
+            }
+            const text = choice?.delta?.content || ''
             if (text) {
               complete += text
               send({ type: 'chunk', text })
             }
           }
 
-          if (complete.trim().length < 200) {
-            console.warn('Summary output too short or truncated:', complete.trim())
+          const isTruncated = lastFinishReason === 'length' || lastFinishReason === 'content_filter'
+          if (complete.trim().length < 200 || isTruncated) {
+            console.warn('Summary output too short or truncated:', complete.trim(), 'finishReason:', lastFinishReason)
             send({
               type: 'error',
-              message: 'Моделът върна непълно обобщение. Моля, опитайте отново с бутона за преглед.',
+              message: isTruncated
+                ? 'Обобщението беше прекъснато заради надвишен лимит на токените. Моля, опитайте отново.'
+                : 'Моделът върна непълно обобщение. Моля, опитайте отново с бутона за преглед.',
             })
+            cleanup()
             controller.close()
             return
           }
@@ -102,12 +132,18 @@ export const POST = async (request: NextRequest): Promise<Response> => {
             model: AI_MODELS.longContext,
           })
           send({ type: 'done', summary: saved })
+          cleanup()
           controller.close()
         } catch (streamError) {
           console.error('Error during summary streaming:', streamError)
           send({ type: 'error', message: 'Грешка при генериране на обобщението. Опитайте отново.' })
+          cleanup()
           controller.close()
         }
+      },
+      cancel() {
+        abortController.abort()
+        cleanup()
       },
     })
 

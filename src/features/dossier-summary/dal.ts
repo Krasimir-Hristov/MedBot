@@ -32,7 +32,7 @@ export const getLatestDossierSummary = async (): Promise<DossierSummaryItem | nu
     }
   } catch (error) {
     console.error('Error fetching latest dossier summary:', error)
-    return null
+    throw new Error('Грешка при зареждане на последното обобщение.')
   }
 }
 
@@ -94,12 +94,17 @@ export const computeStaleness = async (
     return { newCount, removedCount }
   } catch (error) {
     console.error('Error computing summary staleness:', error)
-    return { newCount: 0, removedCount: 0 }
+    throw new Error('Грешка при проверка за актуалност на обобщението.')
   }
 }
 
 export const getDossierSummaryState = async (): Promise<DossierSummaryState> => {
-  const summary = await getLatestDossierSummary()
-  const staleness = await computeStaleness(summary)
-  return { summary, staleness }
+  try {
+    const summary = await getLatestDossierSummary()
+    const staleness = await computeStaleness(summary)
+    return { summary, staleness }
+  } catch (error) {
+    console.error('Error in getDossierSummaryState:', error)
+    throw error
+  }
 }

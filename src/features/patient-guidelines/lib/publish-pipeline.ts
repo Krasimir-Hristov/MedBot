@@ -39,21 +39,21 @@ Return a JSON object:
   try {
     const completion = await openrouter.chat.completions.create({
       model: AI_MODELS.chat,
-      temperature: 0.1,
+      temperature: 0.2,
       response_format: { type: 'json_object' },
       messages: [{ role: 'user', content: prompt }],
     })
 
     const raw = completion.choices[0]?.message?.content || '{}'
-    const parsed = JSON.parse(raw) as { title_bg?: string; title_el?: string; note_bg?: string }
+    const parsed = JSON.parse(raw) as Partial<TranslationResult>
 
     return {
-      title_bg: parsed.title_bg || fallbackTitleBg,
-      title_el: parsed.title_el || fallbackTitleEl,
-      note_bg: parsed.note_bg || bulletTextEl,
+      title_bg: (parsed.title_bg || fallbackTitleBg).trim(),
+      title_el: (parsed.title_el || fallbackTitleEl).trim(),
+      note_bg: (parsed.note_bg || bulletTextEl).trim(),
     }
-  } catch (err) {
-    console.warn(`Translation fallback for category ${category}:`, err)
+  } catch (error) {
+    console.error(`Translation error for category ${category}:`, error)
     return {
       title_bg: fallbackTitleBg,
       title_el: fallbackTitleEl,
@@ -62,22 +62,23 @@ Return a JSON object:
   }
 }
 
-export const generatePublishPreview = async (
+export const generateCategoryPreviewList = async (
   approvedItems: PatientGuidelineItemEntity[]
 ): Promise<CategoryPreviewItem[]> => {
-  // Group by category
-  const grouped = new Map<GuidelineCategory, PatientGuidelineItemEntity[]>()
+  const byCategory = new Map<GuidelineCategory, PatientGuidelineItemEntity[]>()
+
   for (const item of approvedItems) {
-    const list = grouped.get(item.category) || []
+    const list = byCategory.get(item.category) || []
     list.push(item)
-    grouped.set(item.category, list)
+    byCategory.set(item.category, list)
   }
 
   const results: CategoryPreviewItem[] = []
 
-  for (const [category, items] of grouped.entries()) {
+  for (const [category, items] of byCategory.entries()) {
     if (items.length === 0) continue
-    const greekPoints = items.map((i) => i.textEl)
+
+    const greekPoints = items.map((i) => i.textEl.trim()).filter(Boolean)
     const noteEl = greekPoints.map((p) => `• ${p}`).join('\n')
     const translation = await translateCategoryToBulgarian(category, greekPoints)
 
@@ -98,11 +99,7 @@ export const publishGuidelinesToPatient = async (
   previewItems: CategoryPreviewItem[],
   doctorName = 'Д-р Специалист'
 ): Promise<void> => {
-  const allIds: number[] = []
-
   for (const item of previewItems) {
-    allIds.push(...item.approvedItemIds)
-
     const semanticText = `Заглавие: ${item.titleBg} / ${item.titleEl}\nКатегория: ${item.category}\nЛекар: ${doctorName}\nПрепоръки за пациента (BG):\n${item.noteBg}\nΙατρικές οδηγίες (EL):\n${item.noteEl}`
 
     let embedding: number[] | undefined
@@ -122,12 +119,14 @@ export const publishGuidelinesToPatient = async (
       semanticText,
       embedding,
     })
-  }
 
-  if (allIds.length > 0) {
-    await markGuidelinesAsPublished(allIds)
+    if (item.approvedItemIds.length > 0) {
+      await markGuidelinesAsPublished(item.approvedItemIds)
+    }
   }
 
   revalidatePath('/doctor')
   revalidatePath('/patient')
 }
+
+export const generatePublishPreview = generateCategoryPreviewList

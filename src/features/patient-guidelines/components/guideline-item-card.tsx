@@ -26,15 +26,21 @@ export const GuidelineItemCard: React.FC<GuidelineItemCardProps> = ({
   const { t, locale } = useTranslation()
   const [isEditing, setIsEditing] = useState(false)
   const [draftText, setDraftText] = useState(item.textEl)
+  const [isSaving, setIsSaving] = useState(false)
   const [showRationale, setShowRationale] = useState(false)
 
   const isApproved = item.status === 'approved'
   const isRejected = item.status === 'rejected'
 
   const handleSaveEdit = async () => {
-    if (!draftText.trim()) return
-    await onUpdateText(item.id, draftText.trim())
-    setIsEditing(false)
+    if (!draftText.trim() || isSaving) return
+    setIsSaving(true)
+    try {
+      await onUpdateText(item.id, draftText.trim())
+      setIsEditing(false)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleCancelEdit = () => {
@@ -152,7 +158,7 @@ export const GuidelineItemCard: React.FC<GuidelineItemCardProps> = ({
             value={draftText}
             onChange={(e) => setDraftText(e.target.value)}
             className="w-full text-xs font-sans p-2 bg-white border border-sky-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-900 resize-none"
-            aria-label="Редакция на текста на точката"
+            aria-label={t.doctor.guidelines.edit}
           />
           <div className="flex items-center justify-between">
             <VoiceMicButton
@@ -174,7 +180,7 @@ export const GuidelineItemCard: React.FC<GuidelineItemCardProps> = ({
               <button
                 type="button"
                 onClick={handleSaveEdit}
-                disabled={!draftText.trim()}
+                disabled={!draftText.trim() || isSaving}
                 className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-sky-700 text-white rounded-md hover:bg-sky-800 disabled:opacity-50 cursor-pointer"
               >
                 <Save className="w-3 h-3" />

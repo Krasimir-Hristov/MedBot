@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE_NAME, verifySessionToken } from '@/features/auth/lib/session'
+import { checkScopedRateLimit } from '@/features/auth/lib/role-guard'
 import { getApprovedGuidelineItems } from '@/features/patient-guidelines/dal'
 import { PublishGuidelinesSchema } from '@/features/patient-guidelines/schemas'
 import { publishGuidelinesToPatient } from '@/features/patient-guidelines/lib/publish-pipeline'
@@ -14,8 +15,23 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       return NextResponse.json({ error: 'Неоторизиран достъп.' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const parsed = PublishGuidelinesSchema.safeParse(body)
+    const userIdentifier = session.jti || `${session.role}:${session.createdAt || 'session'}`
+    const rateCheck = await checkScopedRateLimit('guidelines-publish', 10, 60_000, userIdentifier)
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Твърде много заявки за публикуване. Моля, изчакайте минута.' },
+        { status: 429 }
+      )
+    }
+
+    let rawBody: unknown
+    try {
+      rawBody = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Невалиден или липсващ JSON формат.' }, { status: 400 })
+    }
+
+    const parsed = PublishGuidelinesSchema.safeParse(rawBody)
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message || 'Невалидни данни за публикуване.' },
@@ -25,6 +41,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
 
     // Consistency check: ensure current approved items in DB match payload
     const currentApproved = await getApprovedGuidelineItems()
+    const currentApprovedMap = new Map(currentApproved.map((i) => [i.id, i]))
     const currentApprovedIds = new Set(currentApproved.map((i) => i.id))
     const payloadIds = new Set(parsed.data.items.flatMap((i) => i.approvedItemIds))
 
@@ -33,6 +50,21 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     if (!hasMismatch) {
       for (const id of payloadIds) {
         if (!currentApprovedIds.has(id)) {
+          hasMismatch = true
+          break
+        }
+      }
+    }
+
+    if (!hasMismatch) {
+      // Content check: verify noteEl matches concatenation of current textEl
+      for (const catItem of parsed.data.items) {
+        const expectedNoteEl = catItem.approvedItemIds
+          .map((id) => currentApprovedMap.get(id)?.textEl?.trim())
+          .filter(Boolean)
+          .map((text) => `• ${text}`)
+          .join('\n')
+        if (catItem.noteEl.trim() !== expectedNoteEl) {
           hasMismatch = true
           break
         }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE_NAME, verifySessionToken } from '@/features/auth/lib/session'
+import { checkScopedRateLimit } from '@/features/auth/lib/role-guard'
 import { getApprovedGuidelineItems } from '@/features/patient-guidelines/dal'
 import { generatePublishPreview } from '@/features/patient-guidelines/lib/publish-pipeline'
 
@@ -11,6 +12,15 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
     const session = await verifySessionToken(token)
     if (!session || (session.role !== 'doctor' && session.role !== 'admin')) {
       return NextResponse.json({ error: 'Неоторизиран достъп.' }, { status: 401 })
+    }
+
+    const userIdentifier = session.jti || `${session.role}:${session.createdAt || 'session'}`
+    const rateCheck = await checkScopedRateLimit('guidelines-preview', 10, 60_000, userIdentifier)
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Твърде много заявки за предварителен преглед. Моля, изчакайте минута.' },
+        { status: 429 }
+      )
     }
 
     const approvedItems = await getApprovedGuidelineItems()

@@ -10,6 +10,7 @@ import {
 import {
   CreateManualGuidelineSchema,
   UpdateGuidelineSchema,
+  DeleteGuidelineIdSchema,
 } from './schemas'
 import type { PatientGuidelineItemEntity } from './types'
 
@@ -77,14 +78,15 @@ export const updateGuidelineAction = async (
   }
 }
 
-export const deleteGuidelineAction = async (id: number): Promise<ActionResponse> => {
+export const deleteGuidelineAction = async (rawId: unknown): Promise<ActionResponse> => {
   try {
     await requireRoles(['doctor', 'admin'] as const)
-    if (!id || id <= 0) {
-      return { success: false, error: 'Невалиден идентификатор.' }
+    const parsed = DeleteGuidelineIdSchema.safeParse(rawId)
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0]?.message || 'Невалиден идентификатор.' }
     }
 
-    const deleted = await deleteGuidelineItem(id)
+    const deleted = await deleteGuidelineItem(parsed.data)
     if (!deleted) {
       return { success: false, error: 'Точката не беше намерена.' }
     }

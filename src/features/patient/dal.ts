@@ -1,5 +1,5 @@
 import 'server-only'
-import { asc, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { chatMessages, chatSessions, medicalDocuments } from '@/lib/db/schema'
 import type { ChatSession } from '@/lib/db/schema'
@@ -20,6 +20,26 @@ export const getPatientChatSessions = async (): Promise<ChatSession[]> => {
   } catch (error) {
     console.error('Error fetching patient chat sessions:', error)
     return []
+  }
+}
+
+/**
+ * Намира сесия по ID само ако принадлежи на пациент
+ */
+export const getPatientChatSessionById = async (
+  sessionId: string
+): Promise<ChatSession | null> => {
+  try {
+    const rows = await db
+      .select()
+      .from(chatSessions)
+      .where(and(eq(chatSessions.sessionId, sessionId), eq(chatSessions.role, 'patient')))
+      .limit(1)
+
+    return rows[0] ?? null
+  } catch (error) {
+    console.error('Error fetching patient chat session by id:', error)
+    return null
   }
 }
 
@@ -49,7 +69,7 @@ export const createPatientChatSession = async (title = 'Нов разговор'
 }
 
 /**
- * Преименува сесия
+ * Преименува сесия (само за пациентски сесии)
  */
 export const renamePatientChatSession = async (
   sessionId: string,
@@ -59,28 +79,36 @@ export const renamePatientChatSession = async (
     const rows = await db
       .update(chatSessions)
       .set({ title, updatedAt: new Date() })
-      .where(eq(chatSessions.sessionId, sessionId))
+      .where(and(eq(chatSessions.sessionId, sessionId), eq(chatSessions.role, 'patient')))
       .returning()
 
     if (!rows[0]) {
-      throw new Error('Session not found')
+      throw new Error('Сесията не е намерена.')
     }
     return rows[0]
   } catch (error) {
     console.error('Error renaming patient chat session:', error)
-    throw new Error('Грешка при преименуване на чат сесията.')
+    throw error
   }
 }
 
 /**
- * Изтрива сесия и съобщенията в нея (чрез cascade)
+ * Изтрива сесия и съобщенията в нея (само за пациентски сесии)
  */
-export const deletePatientChatSession = async (sessionId: string): Promise<void> => {
+export const deletePatientChatSession = async (sessionId: string): Promise<boolean> => {
   try {
-    await db.delete(chatSessions).where(eq(chatSessions.sessionId, sessionId))
+    const rows = await db
+      .delete(chatSessions)
+      .where(and(eq(chatSessions.sessionId, sessionId), eq(chatSessions.role, 'patient')))
+      .returning({ id: chatSessions.id })
+
+    if (rows.length === 0) {
+      throw new Error('Сесията не е намерена.')
+    }
+    return true
   } catch (error) {
     console.error('Error deleting patient chat session:', error)
-    throw new Error('Грешка при изтриване на чат сесията.')
+    throw error
   }
 }
 
@@ -115,10 +143,13 @@ export const getOrCreateActivePatientSession = async (): Promise<string> => {
 }
 
 /**
- * Зарежда съобщенията от конкретен разговор
+ * Зарежда съобщенията от конкретен разговор (най-новите 100 в хронологичен ред)
  */
 export const getPatientChatMessages = async (sessionId: string): Promise<PatientChatMessage[]> => {
   try {
+    const session = await getPatientChatSessionById(sessionId)
+    if (!session) return []
+
     const rows = await db
       .select({
         id: chatMessages.id,
@@ -129,10 +160,10 @@ export const getPatientChatMessages = async (sessionId: string): Promise<Patient
       })
       .from(chatMessages)
       .where(eq(chatMessages.sessionId, sessionId))
-      .orderBy(asc(chatMessages.createdAt))
+      .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id))
       .limit(100)
 
-    return rows.map((r) => ({
+    return rows.reverse().map((r) => ({
       id: r.id,
       role: r.role as 'user' | 'assistant',
       content: r.content,
@@ -172,7 +203,7 @@ export const savePatientChatTurn = async (
     await db
       .update(chatSessions)
       .set({ updatedAt: new Date() })
-      .where(eq(chatSessions.sessionId, sessionId))
+      .where(and(eq(chatSessions.sessionId, sessionId), eq(chatSessions.role, 'patient')))
   } catch (error) {
     console.error('Error saving patient chat turn:', error)
   }
@@ -183,15 +214,18 @@ export const savePatientChatTurn = async (
  */
 export const resetPatientChatSession = async (sessionId: string): Promise<string> => {
   try {
+    const session = await getPatientChatSessionById(sessionId)
+    if (!session) throw new Error('Сесията не е намерена.')
+
     await db.delete(chatMessages).where(eq(chatMessages.sessionId, sessionId))
     await db
       .update(chatSessions)
       .set({ updatedAt: new Date() })
-      .where(eq(chatSessions.sessionId, sessionId))
+      .where(and(eq(chatSessions.sessionId, sessionId), eq(chatSessions.role, 'patient')))
     return sessionId
   } catch (error) {
     console.error('Error resetting patient chat session:', error)
-    return sessionId
+    throw error
   }
 }
 
@@ -248,4 +282,3 @@ export const getPatientPortalData = async (): Promise<PatientPortalData> => {
     }
   }
 }
-

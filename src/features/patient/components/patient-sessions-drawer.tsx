@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useTranslation } from '@/features/i18n'
 import type { ChatSession } from '@/lib/db/schema'
 import { MessageSquare, Edit2, Trash2, Check, X, Plus } from 'lucide-react'
@@ -30,6 +30,17 @@ export const PatientSessionsDrawer: React.FC<PatientSessionsDrawerProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
 
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   const handleStartEdit = (session: ChatSession, e: React.MouseEvent) => {
@@ -38,16 +49,14 @@ export const PatientSessionsDrawer: React.FC<PatientSessionsDrawerProps> = ({
     setEditTitle(session.title)
   }
 
-  const handleSaveEdit = async (sessionId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleSaveEdit = async (sessionId: string) => {
     if (editTitle.trim()) {
       await onRenameSession(sessionId, editTitle.trim())
     }
     setEditingId(null)
   }
 
-  const handleCancelEdit = (e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleCancelEdit = () => {
     setEditingId(null)
   }
 
@@ -65,7 +74,7 @@ export const PatientSessionsDrawer: React.FC<PatientSessionsDrawerProps> = ({
       aria-label={t.patient.history}
       className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-xs flex animate-in fade-in duration-150"
     >
-      <div className="w-80 max-w-[85%] bg-white h-full border-r border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+      <div className="w-80 max-w-[85%] bg-white h-full border-r border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-left duration-200 z-10">
         {/* Header */}
         <div className="p-4 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -113,20 +122,20 @@ export const PatientSessionsDrawer: React.FC<PatientSessionsDrawerProps> = ({
               return (
                 <div
                   key={s.sessionId}
-                  onClick={() => {
-                    if (!isEditing) {
-                      onSelectSession(s.sessionId)
-                      onClose()
-                    }
-                  }}
-                  className={`group relative flex items-center justify-between p-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
+                  className={`group relative flex items-center justify-between p-1.5 rounded-xl text-xs transition-colors ${
                     isActive
                       ? 'bg-sky-50 border border-sky-200 font-semibold text-sky-900'
                       : 'hover:bg-slate-50 border border-transparent text-slate-700'
                   }`}
                 >
                   {isEditing ? (
-                    <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        handleSaveEdit(s.sessionId)
+                      }}
+                      className="flex items-center gap-1 w-full p-1"
+                    >
                       <input
                         type="text"
                         value={editTitle}
@@ -135,10 +144,9 @@ export const PatientSessionsDrawer: React.FC<PatientSessionsDrawerProps> = ({
                         autoFocus
                       />
                       <button
-                        type="button"
-                        onClick={(e) => handleSaveEdit(s.sessionId, e)}
+                        type="submit"
                         aria-label="Запази"
-                        className="p-1 hover:bg-slate-200 rounded text-emerald-600"
+                        className="p-1 hover:bg-slate-200 rounded text-emerald-600 cursor-pointer"
                       >
                         <Check className="w-3.5 h-3.5" />
                       </button>
@@ -146,29 +154,36 @@ export const PatientSessionsDrawer: React.FC<PatientSessionsDrawerProps> = ({
                         type="button"
                         onClick={handleCancelEdit}
                         aria-label="Отказ"
-                        className="p-1 hover:bg-slate-200 rounded text-slate-400"
+                        className="p-1 hover:bg-slate-200 rounded text-slate-400 cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
-                    </div>
+                    </form>
                   ) : (
                     <>
-                      <div className="flex flex-col truncate pr-2">
-                        <span className="truncate">{s.title || t.patient.newConversation}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectSession(s.sessionId)
+                          onClose()
+                        }}
+                        className="flex-1 flex flex-col text-left truncate p-1.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                      >
+                        <span className="truncate font-medium">{s.title || t.patient.newConversation}</span>
                         <span className="text-[10px] text-slate-400 font-normal">
                           {new Date(s.updatedAt).toLocaleDateString(undefined, {
                             day: 'numeric',
                             month: 'short',
                           })}
                         </span>
-                      </div>
+                      </button>
 
-                      <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity pr-1">
                         <button
                           type="button"
                           onClick={(e) => handleStartEdit(s, e)}
                           aria-label="Преименувай"
-                          className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600"
+                          className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 cursor-pointer"
                         >
                           <Edit2 className="w-3 h-3" />
                         </button>
@@ -176,7 +191,7 @@ export const PatientSessionsDrawer: React.FC<PatientSessionsDrawerProps> = ({
                           type="button"
                           onClick={(e) => handleDelete(s.sessionId, e)}
                           aria-label="Изтрий"
-                          className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-rose-600"
+                          className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-rose-600 cursor-pointer"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -189,7 +204,13 @@ export const PatientSessionsDrawer: React.FC<PatientSessionsDrawerProps> = ({
           )}
         </div>
       </div>
-      <div className="flex-1" onClick={onClose} />
+      <button
+        type="button"
+        aria-label={t.patient.close}
+        tabIndex={-1}
+        onClick={onClose}
+        className="flex-1 cursor-default bg-transparent border-0"
+      />
     </div>
   )
 }
