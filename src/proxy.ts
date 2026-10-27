@@ -24,6 +24,7 @@ const getRoleFromRequest = async (request: NextRequest): Promise<string | null> 
 
     const { payload } = await jwtVerify(token, getSecretKey(), {
       algorithms: ['HS256'],
+      requiredClaims: ['exp'],
     })
 
     const role = typeof payload.role === 'string' ? payload.role : null
