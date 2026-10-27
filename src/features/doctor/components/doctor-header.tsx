@@ -3,7 +3,7 @@
 import React from 'react'
 import { LanguageSwitcher, useTranslation } from '@/features/i18n'
 import { LogoutButton } from '@/features/auth'
-import { Activity } from 'lucide-react'
+import { FileText } from 'lucide-react'
 
 interface DoctorHeaderProps {
   totalDocs?: number
@@ -27,19 +27,13 @@ export const DoctorHeader: React.FC<DoctorHeaderProps> = ({ totalDocs = 0 }) => 
         </span>
       </div>
 
-      {/* Patient Pill */}
-      <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 rounded-full text-xs font-medium text-slate-700 border border-slate-200 shadow-xs">
-        <Activity className="w-3.5 h-3.5 text-cyan-600" />
-        <span>{t.doctor.headerStatus}</span>
-        {totalDocs > 0 && (
-          <>
-            <span className="text-slate-300">•</span>
-            <span className="text-slate-500 font-mono">
-              {t.doctor.catalog.totalDocs.replace('{count}', totalDocs.toString())}
-            </span>
-          </>
-        )}
-      </div>
+      {/* Center: Dossier Status */}
+      {totalDocs > 0 && (
+        <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 rounded-full text-xs font-medium text-slate-700 border border-slate-200 shadow-2xs">
+          <FileText className="w-3.5 h-3.5 text-sky-600" />
+          <span>{t.doctor.catalog.totalDocs.replace('{count}', totalDocs.toString())}</span>
+        </div>
+      )}
 
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-3">

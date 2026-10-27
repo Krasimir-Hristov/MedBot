@@ -139,8 +139,9 @@ export const useDossierSummary = ({
 
       if (failed) setError(failed)
     } catch (err) {
-      console.error('Dossier summary failed:', err)
-      setError(err instanceof Error && err.message ? err.message : errorMessage)
+      const msg = err instanceof Error && err.message ? err.message : errorMessage
+      console.warn('Dossier summary notice:', msg)
+      setError(msg)
     } finally {
       setIsGenerating(false)
       setStreamingContent('')

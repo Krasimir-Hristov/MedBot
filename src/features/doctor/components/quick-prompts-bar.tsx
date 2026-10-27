@@ -2,12 +2,14 @@
 
 import React from 'react'
 import { useTranslation } from '@/features/i18n'
-import { Clock, Microscope, Scan, Activity, History, Plus } from 'lucide-react'
+import { History, Plus, Sparkles } from 'lucide-react'
+import { DoctorQuickDropdown } from './doctor-quick-dropdown'
 
 interface QuickPromptsBarProps {
   onSelectPrompt: (prompt: string) => void
   onToggleSessions: () => void
   onNewSession: () => void
+  onOpenSummary?: () => void
   disabled?: boolean
 }
 
@@ -15,38 +17,17 @@ export const QuickPromptsBar: React.FC<QuickPromptsBarProps> = ({
   onSelectPrompt,
   onToggleSessions,
   onNewSession,
+  onOpenSummary,
   disabled = false,
 }) => {
-  const { t } = useTranslation()
-
-  const prompts = [
-    {
-      label: t.doctor.quickPrompts.timeline,
-      icon: Clock,
-      promptText: 'Δώσε μου το πλήρες ογκολογικό χρονολόγιο της ασθενούς με όλες τις σημαντικές ημερομηνίες, επεμβάσεις, θεραπείες και απεικονίσεις.',
-    },
-    {
-      label: t.doctor.quickPrompts.histology,
-      icon: Microscope,
-      promptText: 'Ποια είναι τα αναλυτικά ιστολογικά ευρήματα, ο ιστολογικός τύπος, το grade και η έκφραση των υποδοχέων (ER, PR, HER2, Ki-67);',
-    },
-    {
-      label: t.doctor.quickPrompts.imaging,
-      icon: Scan,
-      promptText: 'Ποια είναι τα αποτελέσματα των απεικονιστικών εξετάσεων (CT, MRI, PET) και πώς συγκρίνονται οι βλάβες διαχρονικά;',
-    },
-    {
-      label: t.doctor.quickPrompts.markers,
-      icon: Activity,
-      promptText: 'Ποια είναι η πορεία των καρκινικών και αιματολογικών δεικτών (CA 15-3, CEA κ.λπ.);',
-    },
-  ]
+  const { t, locale } = useTranslation()
 
   return (
     <nav
-      aria-label="Бързи клинични въпроси и сесии"
-      className="px-4 py-2.5 bg-white border-b border-slate-200/80 flex items-center justify-between gap-2 overflow-x-auto shrink-0 select-none scrollbar-none"
+      aria-label="Управление на сесии и бързи клинични действия"
+      className="px-3 sm:px-4 py-2 bg-white border-b border-slate-200/90 flex items-center justify-between gap-2 shrink-0 select-none"
     >
+      {/* Сесии (история и нова) */}
       <div className="flex items-center gap-1.5 shrink-0">
         <button
           type="button"
@@ -71,23 +52,22 @@ export const QuickPromptsBar: React.FC<QuickPromptsBarProps> = ({
         </button>
       </div>
 
-      <div className="flex items-center gap-1.5 overflow-x-auto">
-        {prompts.map((p, idx) => {
-          const Icon = p.icon
-          return (
-            <button
-              key={idx}
-              type="button"
-              disabled={disabled}
-              onClick={() => onSelectPrompt(p.promptText)}
-              aria-label={p.label}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-full text-xs font-medium text-slate-700 whitespace-nowrap transition-colors shadow-2xs hover:border-slate-300 disabled:opacity-50 cursor-pointer"
-            >
-              <Icon className="w-3 h-3 text-cyan-600 shrink-0" />
-              <span>{p.label}</span>
-            </button>
-          )
-        })}
+      {/* Дясно: Видим бутон за Обобщение + Dropdown за бързи въпроси */}
+      <div className="flex items-center gap-2 shrink-0">
+        {onOpenSummary && (
+          <button
+            type="button"
+            onClick={onOpenSummary}
+            aria-label={t.doctor.openSummary}
+            title={t.doctor.summary.title}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-linear-to-r from-sky-600 to-cyan-600 hover:from-sky-700 hover:to-cyan-700 text-white rounded-xl text-xs font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-white" />
+            <span>{locale === 'el' ? 'Σύνοψη Φακέλου' : 'Обобщение на досието'}</span>
+          </button>
+        )}
+
+        <DoctorQuickDropdown onSelectPrompt={onSelectPrompt} disabled={disabled} />
       </div>
     </nav>
   )

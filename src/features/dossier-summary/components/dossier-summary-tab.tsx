@@ -3,7 +3,7 @@
 import React from 'react'
 import { useTranslation } from '@/features/i18n'
 import { ClinicalMarkdown } from '@/features/doctor/components/clinical-markdown'
-import { AlertTriangle, FileStack, Loader2, RefreshCw, Sparkles } from 'lucide-react'
+import { AlertTriangle, FileStack, Loader2, RefreshCw, Sparkles, UploadCloud } from 'lucide-react'
 import { useDossierSummary } from '../hooks/use-dossier-summary'
 import type { DossierSummaryItem, SummaryStaleness } from '../types'
 
@@ -11,6 +11,7 @@ interface DossierSummaryTabProps {
   initialSummary: DossierSummaryItem | null
   initialStaleness: SummaryStaleness
   onSelectDocument: (docId: number) => void
+  docsCount?: number
 }
 
 const fillCount = (template: string, n: number): string => template.replace('{n}', String(n))
@@ -19,6 +20,7 @@ export const DossierSummaryTab: React.FC<DossierSummaryTabProps> = ({
   initialSummary,
   initialStaleness,
   onSelectDocument,
+  docsCount,
 }) => {
   const { t, locale } = useTranslation()
   const { summary, staleness, streamingContent, isGenerating, error, generate } = useDossierSummary({
@@ -26,6 +28,8 @@ export const DossierSummaryTab: React.FC<DossierSummaryTabProps> = ({
     initialStaleness,
     errorMessage: t.doctor.summary.error,
   })
+
+  const hasNoDocs = docsCount !== undefined && docsCount === 0
 
   const warnings: string[] = []
   if (staleness && staleness.newCount > 0)
@@ -60,8 +64,9 @@ export const DossierSummaryTab: React.FC<DossierSummaryTabProps> = ({
         <button
           type="button"
           onClick={generate}
-          disabled={isGenerating}
+          disabled={isGenerating || hasNoDocs}
           aria-label={summary ? t.doctor.summary.regenerate : t.doctor.summary.generate}
+          title={hasNoDocs ? (locale === 'el' ? 'Δεν υπάρχουν έγγραφα για ανάλυση' : 'Няма качени документи за обобщаване') : undefined}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-700 hover:bg-sky-800 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
         >
           {isGenerating ? (
@@ -74,9 +79,13 @@ export const DossierSummaryTab: React.FC<DossierSummaryTabProps> = ({
           <span>
             {isGenerating
               ? t.doctor.summary.generating
-              : summary
-                ? t.doctor.summary.regenerate
-                : t.doctor.summary.generate}
+              : hasNoDocs
+                ? locale === 'el'
+                  ? 'Χωρίς έγγραφα'
+                  : 'Няма документи'
+                : summary
+                  ? t.doctor.summary.regenerate
+                  : t.doctor.summary.generate}
           </span>
         </button>
       </header>
@@ -110,9 +119,19 @@ export const DossierSummaryTab: React.FC<DossierSummaryTabProps> = ({
           </div>
         ) : (
           <div className="p-8 text-center space-y-2">
-            <Sparkles className="w-8 h-8 text-slate-300 mx-auto" />
+            {hasNoDocs ? (
+              <UploadCloud className="w-8 h-8 text-slate-300 mx-auto" />
+            ) : (
+              <Sparkles className="w-8 h-8 text-slate-300 mx-auto" />
+            )}
             <p className="text-sm font-semibold text-slate-700">{t.doctor.summary.emptyTitle}</p>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">{t.doctor.summary.emptyDesc}</p>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              {hasNoDocs
+                ? locale === 'el'
+                  ? 'Δεν υπάρχουν ακόμη έγγραφα στον φάκελο. Σύρετε или ανεβάστε PDF/εικόνες παρακάτω για να ξεκινήσει η ανάλυση.'
+                  : 'Все още няма качени документи в досието. Моля, качете PDF или сканирани изследвания в зоната отдолу, за да започне анализът.'
+                : t.doctor.summary.emptyDesc}
+            </p>
           </div>
         )}
       </article>

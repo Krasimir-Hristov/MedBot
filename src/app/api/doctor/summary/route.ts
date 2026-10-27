@@ -51,9 +51,14 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       )
     }
 
+    const cookieLocale = request.cookies.get('medbot_locale')?.value || 'el'
     const docs = await getDossierForSummary()
     if (docs.length === 0) {
-      return NextResponse.json({ error: 'Няма документи в досието за обобщаване.' }, { status: 400 })
+      const errorMsg =
+        cookieLocale === 'bg'
+          ? 'Няма качени документи в досието за обобщаване.'
+          : 'Δεν υπάρχουν έγγραφα στον φάκελο για δημιουργία σύνοψης.'
+      return NextResponse.json({ error: errorMsg }, { status: 400 })
     }
 
     const context = buildDossierContext(docs)
@@ -66,20 +71,13 @@ export const POST = async (request: NextRequest): Promise<Response> => {
 
     const abortController = new AbortController()
     let cleanedUp = false
+    const onAbort = () => abortController.abort()
+    request.signal.addEventListener('abort', onAbort)
+
     const cleanup = () => {
       if (cleanedUp) return
       cleanedUp = true
       request.signal.removeEventListener('abort', onAbort)
-    }
-    const onAbort = () => {
-      abortController.abort()
-      cleanup()
-    }
-    request.signal.addEventListener('abort', onAbort)
-
-    if (request.signal.aborted) {
-      cleanup()
-      return new Response(null, { status: 499 })
     }
 
     const stream = await openrouter.chat.completions.create(
@@ -87,7 +85,6 @@ export const POST = async (request: NextRequest): Promise<Response> => {
         model: AI_MODELS.longContext,
         temperature: 0.1,
         max_tokens: SUMMARY_MAX_TOKENS,
-        reasoning_effort: 'low',
         stream: true,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -98,64 +95,78 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     )
 
     const encoder = new TextEncoder()
-    let complete = ''
+    let completeResponse = ''
 
-    const body = new ReadableStream({
+    const customStream = new ReadableStream({
       async start(controller) {
-        const send = (payload: Record<string, unknown>): void => {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`))
-        }
-
         try {
-          send({ type: 'start', documentCount: docs.length })
-          let lastFinishReason: string | null = null
-
           for await (const chunk of stream) {
-            const choice = chunk.choices[0]
-            if (choice?.finish_reason) {
-              lastFinishReason = choice.finish_reason
-            }
-            const text = choice?.delta?.content || ''
-            if (text) {
-              complete += text
-              send({ type: 'chunk', text })
+            const content = chunk.choices[0]?.delta?.content || ''
+            if (content) {
+              completeResponse += content
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: 'chunk', text: content })}\n\n`)
+              )
             }
           }
 
-          const isTruncated = lastFinishReason === 'length' || lastFinishReason === 'content_filter'
-          const isCompleted = lastFinishReason === 'stop'
-          if (!isCompleted || complete.trim().length < 200 || isTruncated) {
-            console.warn(
-              'Summary output incomplete, too short, or truncated:',
-              complete.trim(),
-              'finishReason:',
-              lastFinishReason
-            )
-            send({
-              type: 'error',
-              message: isTruncated
-                ? 'Обобщението беше прекъснато заради надвишен лимит на токените. Моля, опитайте отново.'
-                : 'Моделът върна непълно обобщение. Моля, опитайте отново с бутона за преглед.',
+          let savedSummary: Awaited<ReturnType<typeof saveDossierSummary>> | null = null
+          try {
+            savedSummary = await saveDossierSummary({
+              contentEl: completeResponse,
+              documentIds,
+              truncatedDocCount: context.truncatedDocCount,
+              model: AI_MODELS.longContext,
             })
-            cleanup()
-            controller.close()
-            return
+          } catch (dbError) {
+            console.error('Failed to save dossier summary to DB:', dbError)
           }
 
-          const saved = await saveDossierSummary({
-            contentEl: complete,
-            documentIds,
-            truncatedDocCount: context.truncatedDocCount,
-            model: AI_MODELS.longContext,
-          })
-          send({ type: 'done', summary: saved })
-          cleanup()
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: 'done',
+                summary: savedSummary || {
+                  id: 0,
+                  contentEl: completeResponse,
+                  documentIds,
+                  documentCount: documentIds.length,
+                  truncatedDocCount: context.truncatedDocCount,
+                  model: AI_MODELS.longContext,
+                  createdAt: new Date().toISOString(),
+                },
+              })}\n\n`
+            )
+          )
           controller.close()
         } catch (streamError) {
-          console.error('Error during summary streaming:', streamError)
-          send({ type: 'error', message: 'Грешка при генериране на обобщението. Опитайте отново.' })
+          const isAbort =
+            (streamError instanceof Error && streamError.name === 'AbortError') ||
+            request.signal.aborted
+          if (isAbort) {
+            try {
+              controller.close()
+            } catch {
+              // Ignore already closed stream
+            }
+            return
+          }
+          console.error('Error in dossier summary streaming:', streamError)
+          try {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: 'error',
+                  message: 'Прекъсната връзка при генериране на обобщението.',
+                })}\n\n`
+              )
+            )
+            controller.close()
+          } catch {
+            controller.error(streamError)
+          }
+        } finally {
           cleanup()
-          controller.close()
         }
       },
       cancel() {
@@ -164,7 +175,7 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       },
     })
 
-    return new Response(body, {
+    return new Response(customStream, {
       headers: {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
@@ -173,9 +184,6 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     })
   } catch (error) {
     console.error('Error in POST /api/doctor/summary:', error)
-    return NextResponse.json(
-      { error: 'Възникна грешка при генериране на обобщението.' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Възникна системна грешка.' }, { status: 500 })
   }
 }

@@ -5,6 +5,8 @@ import { getSession } from '@/features/auth/lib/session'
 import { getDocumentsList } from '@/features/documents'
 import { getChatMessages, getDoctorChatSessions } from '@/features/doctor/lib/chat-dal'
 import { getDoctorNotes } from '@/features/doctor/lib/notes-dal'
+import { getDossierSummaryState } from '@/features/dossier-summary/dal'
+import { listGuidelineItems } from '@/features/patient-guidelines/dal'
 import { DoctorPortalShell } from '@/features/doctor'
 import { Loader2 } from 'lucide-react'
 
@@ -27,10 +29,15 @@ const DoctorPortalDataLoader: React.FC = async () => {
   }
 
   // Паралелно първоначално извличане от DAL слоя
-  const [documents, sessions, notes] = await Promise.all([
+  const [documents, sessions, notes, summaryState, guidelines] = await Promise.all([
     getDocumentsList(),
     getDoctorChatSessions(),
     getDoctorNotes(),
+    getDossierSummaryState().catch(() => ({
+      summary: null,
+      staleness: { newCount: 0, removedCount: 0 },
+    })),
+    listGuidelineItems().catch(() => []),
   ])
 
   const initialMessages = sessions[0]
@@ -43,6 +50,8 @@ const DoctorPortalDataLoader: React.FC = async () => {
       initialSessions={sessions}
       initialMessages={initialMessages}
       initialNotes={notes}
+      initialSummaryState={summaryState}
+      initialGuidelines={guidelines}
     />
   )
 }

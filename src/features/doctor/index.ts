@@ -1,6 +1,7 @@
 export * from './components/doctor-portal-shell'
 export * from './components/doctor-header'
 export * from './components/quick-prompts-bar'
+export * from './components/doctor-quick-dropdown'
 export * from './components/chat-message-list'
 export * from './components/chat-input-bar'
 export * from './components/document-viewer'

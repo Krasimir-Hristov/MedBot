@@ -4,6 +4,10 @@ import React, { useState, useCallback } from 'react'
 import { useTranslation } from '@/features/i18n'
 import type { DocumentCatalogItem } from '@/features/documents'
 import type { ChatMessage, ChatSession, DoctorNote } from '@/lib/db/schema'
+import type { DossierSummaryState } from '@/features/dossier-summary'
+import { DossierSummaryTab } from '@/features/dossier-summary'
+import type { PatientGuidelineItemEntity } from '@/features/patient-guidelines'
+import { GuidelinesTab } from '@/features/patient-guidelines'
 import { useDoctorChat } from '../hooks/use-doctor-chat'
 import { DoctorHeader } from './doctor-header'
 import { QuickPromptsBar } from './quick-prompts-bar'
@@ -22,6 +26,8 @@ interface DoctorPortalShellProps {
   initialSessions: ChatSession[]
   initialMessages: ChatMessage[]
   initialNotes: DoctorNote[]
+  initialSummaryState?: DossierSummaryState
+  initialGuidelines?: PatientGuidelineItemEntity[]
 }
 
 export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
@@ -29,6 +35,8 @@ export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
   initialSessions,
   initialMessages,
   initialNotes,
+  initialSummaryState = { summary: null, staleness: { newCount: 0, removedCount: 0 } },
+  initialGuidelines = [],
 }) => {
   const { t, locale } = useTranslation()
 
@@ -36,9 +44,14 @@ export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
   const [documents, setDocuments] = useState<DocumentCatalogItem[]>(initialDocuments)
   const [selectedDocId, setSelectedDocId] = useState<number | undefined>(initialDocuments[0]?.id)
   const [notes, setNotes] = useState<DoctorNote[]>(initialNotes)
-  const [rightTab, setRightTab] = useState<RightTab>('viewer')
+  const [summaryState] = useState<DossierSummaryState>(initialSummaryState)
+  const [guidelines] = useState<PatientGuidelineItemEntity[]>(initialGuidelines)
+  const [rightTab, setRightTab] = useState<RightTab>(
+    initialSummaryState.summary ? 'summary' : initialDocuments.length > 0 ? 'viewer' : 'summary'
+  )
   const [isSessionsOpen, setIsSessionsOpen] = useState(false)
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
+  const [mobileMode, setMobileMode] = useState<'document' | 'summary'>('document')
 
   const {
     sessions,
@@ -64,6 +77,15 @@ export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
     setSelectedDocId(docId)
     setRightTab('viewer')
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setMobileMode('document')
+      setIsMobileSheetOpen(true)
+    }
+  }, [])
+
+  const handleOpenSummary = useCallback(() => {
+    setRightTab('summary')
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setMobileMode('summary')
       setIsMobileSheetOpen(true)
     }
   }, [])
@@ -127,6 +149,7 @@ export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
             onSelectPrompt={sendMessage}
             onToggleSessions={() => setIsSessionsOpen((prev) => !prev)}
             onNewSession={createNewSession}
+            onOpenSummary={handleOpenSummary}
             disabled={isThinking}
           />
 
@@ -153,22 +176,40 @@ export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
           />
         </section>
 
-        {/* Дясна колона: 40% Преглед / Каталог / Бележки (Desktop) */}
+        {/* Дясна колона: 40% Обобщение / Преглед / Каталог / Насоки / Бележки */}
         <aside className="hidden lg:flex w-[40%] flex-col bg-white h-full overflow-hidden border-l border-slate-200/50">
           <RightPanelTabs
             activeTab={rightTab}
             onSelectTab={setRightTab}
             docsCount={documents.length}
+            notesCount={notes.length}
           />
 
           {/* Tab съдържание */}
           <div className="flex-1 overflow-hidden flex flex-col">
-            {rightTab === 'viewer' && <DocumentViewer key={selectedDocument?.id} document={selectedDocument} />}
+            {rightTab === 'summary' && (
+              <DossierSummaryTab
+                initialSummary={summaryState.summary}
+                initialStaleness={summaryState.staleness}
+                docsCount={documents.length}
+                onSelectDocument={handleSelectDocument}
+              />
+            )}
+            {rightTab === 'viewer' && (
+              <DocumentViewer key={selectedDocument?.id} document={selectedDocument} />
+            )}
             {rightTab === 'catalog' && (
               <DocumentsCatalogTab
                 documents={documents}
                 selectedDocId={selectedDocId}
                 onSelectDocument={handleSelectDocument}
+              />
+            )}
+            {rightTab === 'guidelines' && (
+              <GuidelinesTab
+                initialItems={guidelines}
+                onSelectDocument={handleSelectDocument}
+                onPublishedSuccess={handlePublishedSuccess}
               />
             )}
             {rightTab === 'notes' && (
@@ -185,10 +226,14 @@ export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
         </aside>
       </main>
 
-      {/* Мобилен Drawer за преглед на документи без напускане на чата */}
+      {/* Мобилен Sheet за преглед на документи или обобщение без напускане на чата */}
       <MobileDocumentSheet
         isOpen={isMobileSheetOpen}
         document={selectedDocument}
+        mode={mobileMode}
+        summaryState={summaryState}
+        docsCount={documents.length}
+        onSelectDocument={handleSelectDocument}
         onClose={() => setIsMobileSheetOpen(false)}
       />
     </div>

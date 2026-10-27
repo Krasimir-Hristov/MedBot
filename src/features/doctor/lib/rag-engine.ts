@@ -2,6 +2,7 @@ import 'server-only'
 import { AI_MODELS, openrouter } from '@/lib/openrouter'
 import type { Locale } from '@/features/i18n'
 import type { DocumentCatalogItem, RagDocumentMatch } from '@/features/documents'
+import type { DoctorNote } from '@/lib/db/schema'
 import { truncateToTokenBudget } from '@/features/admin/lib/ai-pipeline'
 
 const RETRIEVAL_TOKEN_BUDGET = 60_000
@@ -66,6 +67,25 @@ export const formatDossierCatalogIndex = (
 }
 
 /**
+ * Форматира лекарските бележки и насоки за контекста на RAG асистента.
+ */
+export const formatDoctorNotesIndex = (notes: DoctorNote[]): string => {
+  if (notes.length === 0) {
+    return 'Няма допълнителни лекарски бележки или насоки / Δεν υπάρχουν ιατρικές σημειώσεις.'
+  }
+
+  return notes
+    .slice(0, 15)
+    .map((n) => {
+      const dateStr = n.createdAt ? new Date(n.createdAt).toISOString().split('T')[0] : ''
+      const author = n.doctorName ? ` (Д-р ${n.doctorName})` : ''
+      const content = n.noteEl || n.noteBg
+      return `- [${dateStr}]${author}: ${content}`
+    })
+    .join('\n')
+}
+
+/**
  * Форматира извлечените от векторното търсене документи с пълен текст и метаданни.
  * Ограничава токен обема на откъсите за предпазване на латентността и разходите.
  */
@@ -109,14 +129,19 @@ ${truncateToTokenBudget(m.extractedText, perDocBudget)}
 export const buildDoctorSystemPrompt = (
   locale: Locale,
   catalogIndex: string,
-  retrievedMatches: string
+  retrievedMatches: string,
+  doctorNotesIndex?: string
 ): string => {
   const languageDirective =
     locale === 'el'
-      ? 'Απαντήστε υποχρεωτικά στα ΕΛΛΗΝΙΚΑ (Greek) με άρτια ιατρική ογκολογική οроλογία.'
+      ? 'Απαντήστε υποχρεωτικά στα ΕΛΛΗΝΙΚΑ (Greek) με άρτια ιατρική ογκολογική ορολογία.'
       : 'Отговаряйте задължително на БЪЛГАРСКИ ЕЗИК с точна медицинска онкологична терминология.'
 
-  return `You are MedBot, an elite Clinical Oncology AI Assistant consulting an oncologist regarding a female oncology patient (68 y/o, osteoporosis, pulmonary lesion).
+  const notesSection = doctorNotesIndex
+    ? `\n\nDOCTOR NOTES, RECORDED SYMPTOMS & CLINICAL RECOMMENDATIONS:\n${doctorNotesIndex}`
+    : ''
+
+  return `You are MedBot, an elite Clinical Oncology AI Assistant consulting an oncologist regarding this oncology patient.
 
 ${languageDirective}
 
@@ -124,11 +149,11 @@ CLINICAL DOSSIER OVERVIEW (ALL AVAILABLE DOCUMENTS CHRONOLOGICALLY):
 ${catalogIndex}
 
 DETAILED RELEVANT DOSSIER EXCERPTS (OCR & METADATA):
-${retrievedMatches}
+${retrievedMatches}${notesSection}
 
 CRITICAL INSTRUCTIONS:
-1. Ground every statement strictly in the provided medical dossier. If a detail, date, or marker is absent, state clearly that it is not documented.
-2. CITATIONS ARE MANDATORY: Whenever you mention a diagnosis, biopsy, surgery, imaging result (CT, MRI, PET), marker level, or therapy recommendation, cite the exact source document using the format:
+1. Ground every statement strictly in the provided medical dossier and doctor notes. If a detail, date, or marker is absent, state clearly that it is not documented.
+2. CITATIONS ARE MANDATORY: Whenever you mention a diagnosis, biopsy, surgery, imaging result (CT, MRI, PET), marker level, or therapy recommendation from a document, cite the exact source document using the format:
    [📄 Document Title (YYYY-MM-DD)](/api/doc/ID)
    Example: [📄 Ιστολογική Έκθεση (2024-05-14)](/api/doc/12)
 3. For timeline questions ("Χρονολόγιο" / "Хронология"), synthesize a chronological bulleted sequence from earliest to latest, showing disease progression, interventions, receptor status, and imaging dynamics (RECIST).

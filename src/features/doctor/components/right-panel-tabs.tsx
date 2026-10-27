@@ -2,20 +2,22 @@
 
 import React from 'react'
 import { useTranslation } from '@/features/i18n'
-import { FileText, FolderKanban, StickyNote } from 'lucide-react'
+import { FileText, FolderKanban, StickyNote, Sparkles, ClipboardList } from 'lucide-react'
 
-export type RightTab = 'viewer' | 'catalog' | 'notes'
+export type RightTab = 'summary' | 'viewer' | 'catalog' | 'guidelines' | 'notes'
 
 interface RightPanelTabsProps {
   activeTab: RightTab
   onSelectTab: (tab: RightTab) => void
   docsCount: number
+  notesCount?: number
 }
 
 export const RightPanelTabs: React.FC<RightPanelTabsProps> = ({
   activeTab,
   onSelectTab,
   docsCount,
+  notesCount = 0,
 }) => {
   const { t } = useTranslation()
 
@@ -24,7 +26,15 @@ export const RightPanelTabs: React.FC<RightPanelTabsProps> = ({
     label: string
     shortLabel: string
     icon: React.ComponentType<{ className?: string }>
+    isSpecial?: boolean
   }> = [
+    {
+      id: 'summary',
+      label: t.doctor.tabs.summary,
+      shortLabel: t.doctor.tabs.summary,
+      icon: Sparkles,
+      isSpecial: true,
+    },
     {
       id: 'viewer',
       label: t.doctor.tabs.viewer,
@@ -38,9 +48,15 @@ export const RightPanelTabs: React.FC<RightPanelTabsProps> = ({
       icon: FolderKanban,
     },
     {
+      id: 'guidelines',
+      label: t.doctor.tabs.guidelines,
+      shortLabel: t.doctor.tabs.guidelines,
+      icon: ClipboardList,
+    },
+    {
       id: 'notes',
-      label: t.doctor.tabs.notes,
-      shortLabel: t.doctor.tabs.notes,
+      label: notesCount > 0 ? `${t.doctor.tabs.notes} (${notesCount})` : t.doctor.tabs.notes,
+      shortLabel: notesCount > 0 ? `(${notesCount})` : t.doctor.tabs.notes,
       icon: StickyNote,
     },
   ]
@@ -60,13 +76,21 @@ export const RightPanelTabs: React.FC<RightPanelTabsProps> = ({
             onClick={() => onSelectTab(tab.id)}
             title={tab.label}
             aria-label={tab.label}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
               isActive
-                ? 'bg-sky-50 text-sky-800 border border-sky-200 shadow-2xs'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? tab.isSpecial
+                  ? 'bg-linear-to-r from-sky-50 to-cyan-50 text-sky-800 border border-sky-300 shadow-2xs font-bold'
+                  : 'bg-sky-50 text-sky-800 border border-sky-200 shadow-2xs'
+                : tab.isSpecial
+                  ? 'text-sky-700 bg-sky-50/50 hover:bg-sky-50 border border-transparent hover:border-sky-200'
+                  : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Icon className="w-3.5 h-3.5" />
+            <Icon
+              className={`w-3.5 h-3.5 ${
+                tab.isSpecial ? 'text-cyan-600 animate-pulse' : ''
+              }`}
+            />
             <span className="hidden xl:inline">{tab.label}</span>
             <span className="inline xl:hidden">{tab.shortLabel}</span>
           </button>

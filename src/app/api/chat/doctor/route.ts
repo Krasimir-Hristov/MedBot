@@ -9,10 +9,12 @@ import {
   getChatMessages,
   getChatSession,
 } from '@/features/doctor/lib/chat-dal'
+import { getDoctorNotes } from '@/features/doctor/lib/notes-dal'
 import {
   buildDoctorSystemPrompt,
   expandMedicalQuery,
   extractCitations,
+  formatDoctorNotesIndex,
   formatDossierCatalogIndex,
   formatRetrievedMatches,
 } from '@/features/doctor/lib/rag-engine'
@@ -87,11 +89,12 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       content: cleanMessage,
     })
 
-    // 4. RAG Конвейер и зареждане на скорошната история на разговора
-    const [expandedQuery, allDocs, existingMessages] = await Promise.all([
+    // 4. RAG Конвейер и зареждане на история на разговора + лекарски бележки
+    const [expandedQuery, allDocs, existingMessages, recentNotes] = await Promise.all([
       expandMedicalQuery(cleanMessage),
       getDocumentsList(),
       getChatMessages(activeSessionId),
+      getDoctorNotes().catch(() => []),
     ])
 
     const queryEmbedding = await createMedicalEmbedding(expandedQuery)
@@ -99,7 +102,13 @@ export const POST = async (request: NextRequest): Promise<Response> => {
 
     const catalogIndex = formatDossierCatalogIndex(allDocs, locale)
     const retrievedMatches = formatRetrievedMatches(topMatches, locale)
-    const systemPrompt = buildDoctorSystemPrompt(locale, catalogIndex, retrievedMatches)
+    const doctorNotesIndex = formatDoctorNotesIndex(recentNotes)
+    const systemPrompt = buildDoctorSystemPrompt(
+      locale,
+      catalogIndex,
+      retrievedMatches,
+      doctorNotesIndex
+    )
 
     // Извличаме предходните съобщения (без току-що записаното текущо съобщение),
     // ограничени до последните 6 съобщения за плавен контекст при последващи въпроси
