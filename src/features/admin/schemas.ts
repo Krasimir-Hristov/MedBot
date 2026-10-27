@@ -38,8 +38,10 @@ const isoDateSchema = z
     if (!val || val === 'null' || val === 'undefined') {
       return new Date().toISOString().slice(0, 10)
     }
-    const normalized = normalizeDate(val)
-    return ISO_DATE_REGEX.test(normalized) ? normalized : new Date().toISOString().slice(0, 10)
+    return normalizeDate(val)
+  })
+  .refine((val) => ISO_DATE_REGEX.test(val), {
+    message: 'doc_date трябва да е във формат YYYY-MM-DD',
   })
 
 const markersSchema = z

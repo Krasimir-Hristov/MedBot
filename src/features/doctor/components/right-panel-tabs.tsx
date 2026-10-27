@@ -24,39 +24,36 @@ export const RightPanelTabs: React.FC<RightPanelTabsProps> = ({
   const tabs: Array<{
     id: RightTab
     label: string
-    shortLabel: string
+    count?: number
     icon: React.ComponentType<{ className?: string }>
     isSpecial?: boolean
   }> = [
     {
       id: 'summary',
       label: t.doctor.tabs.summary,
-      shortLabel: t.doctor.tabs.summary,
       icon: Sparkles,
       isSpecial: true,
     },
     {
       id: 'viewer',
       label: t.doctor.tabs.viewer,
-      shortLabel: t.doctor.tabs.viewer,
       icon: FileText,
     },
     {
       id: 'catalog',
-      label: `${t.doctor.tabs.catalog} (${docsCount})`,
-      shortLabel: `(${docsCount})`,
+      label: t.doctor.tabs.catalog,
+      count: docsCount,
       icon: FolderKanban,
     },
     {
       id: 'guidelines',
       label: t.doctor.tabs.guidelines,
-      shortLabel: t.doctor.tabs.guidelines,
       icon: ClipboardList,
     },
     {
       id: 'notes',
-      label: notesCount > 0 ? `${t.doctor.tabs.notes} (${notesCount})` : t.doctor.tabs.notes,
-      shortLabel: notesCount > 0 ? `(${notesCount})` : t.doctor.tabs.notes,
+      label: t.doctor.tabs.notes,
+      count: notesCount > 0 ? notesCount : undefined,
       icon: StickyNote,
     },
   ]
@@ -64,7 +61,7 @@ export const RightPanelTabs: React.FC<RightPanelTabsProps> = ({
   return (
     <nav
       aria-label="Навигация на досието"
-      className="h-11 px-2 sm:px-3 bg-white border-b border-slate-200 flex items-center gap-1 shrink-0 select-none overflow-x-auto scrollbar-none"
+      className="h-11 px-2 bg-white border-b border-slate-200 flex items-center gap-1 shrink-0 select-none overflow-x-auto scrollbar-none"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon
@@ -74,9 +71,9 @@ export const RightPanelTabs: React.FC<RightPanelTabsProps> = ({
             key={tab.id}
             type="button"
             onClick={() => onSelectTab(tab.id)}
-            title={tab.label}
-            aria-label={tab.label}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+            title={tab.count !== undefined ? `${tab.label} (${tab.count})` : tab.label}
+            aria-label={tab.count !== undefined ? `${tab.label} (${tab.count})` : tab.label}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               isActive
                 ? tab.isSpecial
                   ? 'bg-linear-to-r from-sky-50 to-cyan-50 text-sky-800 border border-sky-300 shadow-2xs font-bold'
@@ -87,12 +84,22 @@ export const RightPanelTabs: React.FC<RightPanelTabsProps> = ({
             }`}
           >
             <Icon
-              className={`w-3.5 h-3.5 ${
+              className={`w-3.5 h-3.5 shrink-0 ${
                 tab.isSpecial ? 'text-cyan-600 animate-pulse' : ''
               }`}
             />
-            <span className="hidden xl:inline">{tab.label}</span>
-            <span className="inline xl:hidden">{tab.shortLabel}</span>
+            <span>{tab.label}</span>
+            {tab.count !== undefined && (
+              <span
+                className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  isActive
+                    ? 'bg-sky-200 text-sky-900'
+                    : 'bg-slate-200 text-slate-700'
+                }`}
+              >
+                {tab.count}
+              </span>
+            )}
           </button>
         )
       })}

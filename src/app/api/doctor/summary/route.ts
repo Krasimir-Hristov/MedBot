@@ -100,14 +100,35 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     const customStream = new ReadableStream({
       async start(controller) {
         try {
+          let finishReason: string | null = null
           for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || ''
+            const choice = chunk.choices[0]
+            if (choice?.finish_reason) {
+              finishReason = choice.finish_reason
+            }
+            const content = choice?.delta?.content || ''
             if (content) {
               completeResponse += content
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ type: 'chunk', text: content })}\n\n`)
               )
             }
+          }
+
+          if (finishReason !== 'stop' || completeResponse.length < 200) {
+            console.warn(
+              `Dossier summary generation incomplete or interrupted: finish_reason=${finishReason}, length=${completeResponse.length}`
+            )
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: 'error',
+                  message: 'Прекъсната връзка при генериране на обобщението.',
+                })}\n\n`
+              )
+            )
+            controller.close()
+            return
           }
 
           let savedSummary: Awaited<ReturnType<typeof saveDossierSummary>> | null = null

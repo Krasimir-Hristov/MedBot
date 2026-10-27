@@ -9,6 +9,7 @@ import { DossierSummaryTab } from '@/features/dossier-summary'
 import type { PatientGuidelineItemEntity } from '@/features/patient-guidelines'
 import { GuidelinesTab } from '@/features/patient-guidelines'
 import { useDoctorChat } from '../hooks/use-doctor-chat'
+import { useResizableSplit } from '../hooks/use-resizable-split'
 import { DoctorHeader } from './doctor-header'
 import { QuickPromptsBar } from './quick-prompts-bar'
 import { ChatSessionsDrawer } from './chat-sessions-drawer'
@@ -20,6 +21,7 @@ import { DoctorNotesTab } from './doctor-notes-tab'
 import { QuickUploadDropzone } from './quick-upload-dropzone'
 import { MobileDocumentSheet } from './mobile-document-sheet'
 import { RightPanelTabs, type RightTab } from './right-panel-tabs'
+import { PanelSplitter } from './panel-splitter'
 
 interface DoctorPortalShellProps {
   initialDocuments: DocumentCatalogItem[]
@@ -52,6 +54,15 @@ export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
   const [isSessionsOpen, setIsSessionsOpen] = useState(false)
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   const [mobileMode, setMobileMode] = useState<'document' | 'summary'>('document')
+
+  const {
+    containerRef,
+    splitRatio,
+    isDragging,
+    startDragging,
+    resetToDefault,
+    stepRatio,
+  } = useResizableSplit({ defaultRatio: 42, minRatio: 25, maxRatio: 75 })
 
   const {
     sessions,
@@ -142,9 +153,12 @@ export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
     <div className="h-screen flex flex-col bg-slate-100 overflow-hidden text-slate-900 font-sans antialiased">
       <DoctorHeader totalDocs={documents.length} />
 
-      <main className="flex-1 flex overflow-hidden">
-        {/* Лява колона: 60% RAG Чат (Desktop) / 100% (Mobile) */}
-        <section className="w-full lg:w-[60%] flex flex-col bg-slate-50 border-r border-slate-200 h-full overflow-hidden relative">
+      <main ref={containerRef} className="flex-1 flex overflow-hidden relative">
+        {/* Лява колона: Преоразмеряем RAG Чат (Desktop: динамична ширина, default 42%) / 100% (Mobile) */}
+        <section
+          style={{ '--chat-width': `${splitRatio}%` } as React.CSSProperties}
+          className="w-full lg:w-[var(--chat-width)] flex flex-col bg-slate-50 h-full overflow-hidden relative shrink-0"
+        >
           <QuickPromptsBar
             onSelectPrompt={sendMessage}
             onToggleSessions={() => setIsSessionsOpen((prev) => !prev)}
@@ -176,8 +190,19 @@ export const DoctorPortalShell: React.FC<DoctorPortalShellProps> = ({
           />
         </section>
 
-        {/* Дясна колона: 40% Обобщение / Преглед / Каталог / Насоки / Бележки */}
-        <aside className="hidden lg:flex w-[40%] flex-col bg-white h-full overflow-hidden border-l border-slate-200/50">
+        {/* Разделител за преоразмеряване с мишката (като в VS Code, Windows, Antigravity) */}
+        <PanelSplitter
+          isDragging={isDragging}
+          splitRatio={splitRatio}
+          minRatio={25}
+          maxRatio={75}
+          onPointerDown={startDragging}
+          onDoubleClick={resetToDefault}
+          onStepRatio={stepRatio}
+        />
+
+        {/* Дясна колона: Заема цялото останало пространство (Desktop: default ~58%) */}
+        <aside className="hidden lg:flex flex-1 min-w-0 flex-col bg-white h-full overflow-hidden border-l border-slate-200/50">
           <RightPanelTabs
             activeTab={rightTab}
             onSelectTab={setRightTab}
