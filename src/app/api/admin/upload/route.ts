@@ -36,7 +36,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse<UploadApi
     } catch (error) {
       if (error instanceof PayloadTooLargeError) {
         return jsonResponse(
-          { success: false, error: 'Файлът надвишава максимално допустимия размер (5 MB за PDF).' },
+          { success: false, error: 'Файлът надвишава максимално допустимия размер (10 MB за PDF).' },
           413
         )
       }

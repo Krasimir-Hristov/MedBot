@@ -21,4 +21,4 @@ export const NOTE_CATEGORY_LABELS_EL: Record<NoteCategory, string> = {
   exercise: '🤸 Θεραπευτική άσκηση',
 }
 
-export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024 // 5 MB
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024 // 10 MB

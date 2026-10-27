@@ -57,7 +57,7 @@ export const UploadPayloadSchema = z
       .string()
       .max(
         UPLOAD_LIMITS.maxPdfBase64Chars,
-        'Файлът надвишава максимално допустимия размер (5 MB за PDF).'
+        'Файлът надвишава максимално допустимия размер (10 MB за PDF).'
       ),
   })
   .refine((data) => resolveUploadMimeType(data.fileBase64) !== null, {

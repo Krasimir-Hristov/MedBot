@@ -7,7 +7,7 @@ export interface ProcessedUploadFile {
   fileSize: number
 }
 
-const MAX_PDF_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB
+const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024 // 10 MB
 
 export const compressAndPrepareFile = async (
   file: File
@@ -17,7 +17,7 @@ export const compressAndPrepareFile = async (
 
     if (isPdf) {
       if (file.size > MAX_PDF_SIZE_BYTES) {
-        throw new Error('PDF файлът надвишава максимално допустимия размер от 5 MB.')
+        throw new Error('PDF файлът надвишава максимално допустимия размер от 10 MB.')
       }
 
       const dataUrl = await readFileAsDataUrl(file)

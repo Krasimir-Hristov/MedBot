@@ -120,15 +120,15 @@ export const UPLOAD_LIMITS = {
   maxFiles: 30,
   /** Максимален размер на сурово изображение преди клиентска компресия (25 MB). */
   maxFileBytes: 25 * 1024 * 1024,
-  /** Максимален размер на PDF файл (5 MB бинарни данни – запазва се без загуба на качество). */
-  maxPdfBytes: 5 * 1024 * 1024,
+  /** Максимален размер на PDF файл (10 MB бинарни данни – запазва се без загуба на качество). */
+  maxPdfBytes: 10 * 1024 * 1024,
   maxConcurrent: 2,
   /** Максимален размер на base64 низа след компресия за JPEG (~1MB бинарни данни). */
   maxBase64Chars: 1_400_000,
-  /** Максимален размер на base64 низа за PDF (~5MB бинарни данни). */
-  maxPdfBase64Chars: 7_000_000,
-  /** Твърд лимит в байтове за входящо JSON тяло към `/api/admin/upload` (10 MB). */
-  maxRequestBodyBytes: 10 * 1024 * 1024,
+  /** Максимален размер на base64 низа за PDF (~10MB бинарни данни). */
+  maxPdfBase64Chars: 15_000_000,
+  /** Твърд лимит в байтове за входящо JSON тяло към `/api/admin/upload` (20 MB). */
+  maxRequestBodyBytes: 20 * 1024 * 1024,
 } as const
 
 export const DOCUMENTS_PAGE_SIZE = 8
