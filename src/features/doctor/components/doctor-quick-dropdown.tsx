@@ -27,6 +27,8 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  const isGreek = locale === 'el'
+
   // 7-те ключови изисквания за медицинска документация и анализи от становището на д-р Анастасиос Вагионас (19.10.2026 г.)
   const items = [
     {
@@ -34,8 +36,8 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
       icon: Microscope,
       color: 'text-indigo-600 bg-indigo-50 border-indigo-200',
       titleEl: 'Αρχική Βιοψία & HER2 ISH (15.10.2025)',
-      titleBg: 'Първоначална биопсия и HER2 ISH статус',
-      descEl: 'Заключение 15.10.2025: ER 100%, HER2 2+ ISH(+), Ki-67',
+      titleBg: 'Първоначална биопсия и HER2 ISH (15.10.2025 г.)',
+      descEl: 'Έκθεση 15.10.2025: ER 100%, HER2 2+ ISH(+), Ki-67 8%',
       descBg: 'Оригинално хистологично заключение и потвърждение на HER2 статус',
       promptTextEl:
         'Εντόπισε και ανάλυσε την αρχική βιοψία της 15.10.2025 και το αποτέλεσμα HER2 ISH/FISH (ER, PR, HER2, Ki-67). Παράθεσε τα ακριβή έγγραφα του φακέλου με συνδέσμους [📄 ...](/api/doc/ID).',
@@ -46,12 +48,12 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
       id: 'surgery-histology',
       icon: FileText,
       color: 'text-rose-600 bg-rose-50 border-rose-200',
-      titleEl: 'Χειρουργικό Πρακτικό & Ιστολογία (27.03.2026)',
-      titleBg: 'Оперативен протокол и следоперативна хистология',
-      descEl: 'Ριζική μαστεκτομή 27.03.2026 & ypT2N1aM0 (απώλεια HER2)',
-      descBg: 'Оперативен протокол от 27.03.2026 г., остатъчен тумор и лимфни възли',
+      titleEl: 'Χειρουργικό Πρακτικό & Μετεγχειρητική Ιστολογία (27.03.2026)',
+      titleBg: 'Оперативен протокол и следоперативна хистология (27.03.2026 г.)',
+      descEl: 'Ριζική μαστεκτομή, μασχαλιαία εκτομή & ypT2N1aM0 (απώλεια HER2)',
+      descBg: 'Оперативен протокол от мастектомията, остатъчен тумор и лимфни възли',
       promptTextEl:
-        'Βρες το χειρουργικό πρακτικό της 27.03.2026 (ριζική μαστεκτομή, ακσιλαρική εκτομή) και την οριστική μετεγχειρητική ιστοπαθολογική έκθεση (ypT2N1aM0, ER 98%, HER2 score 0, Ki-67 40%). Παράθεσε συνδέσμους στα σχετικά έγγραφα.',
+        'Βρες το χειρουργικό πρακτικό της 27.03.2026 (ριζική μαστεκτομή, λεμφαδενικός καθαρισμός) και την οριστική μετεγχειρητική έκθεση (ypT2N1aM0, ER 98%, HER2 score 0, Ki-67 40%). Παράθεσε συνδέσμους στα σχετικά έγγραφα.',
       promptTextBg:
         'Намери оперативния протокол от операцията на 27.03.2026 г. и окончателното хистологично заключение след операцията (стадий ypT2N1aM0, ER 98%, HER2 score 0, Ki-67 40%). Посочи връзки към документите.',
     },
@@ -59,12 +61,12 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
       id: 'chemo-protocols',
       icon: Clock,
       color: 'text-cyan-600 bg-cyan-50 border-cyan-200',
-      titleEl: 'Πρωτόκολλα Χημειοθεραπείας (NACT & ΑΧΤ)',
+      titleEl: 'Πρωτόκολλα Χημειοθεραπείας (NACT & Επικουρική)',
       titleBg: 'Протоколи от неоадювантна и адювантна химиотерапия',
-      descEl: '4 κύκλοι Docetaxel+Phesgo & 3 κύκλοι επικουρικής ΑΧТ',
-      descBg: 'Всички цикли, вляти медикаменти, дозировки и дати',
+      descEl: '4 κύκλοι Docetaxel+Phesgo & 3 κύκλοι επικουρικής χημειοθεραπείας',
+      descBg: 'Всички проведени цикли с медикаменти, дозировки и дати',
       promptTextEl:
-        'Εντόπισε όλα τα πρωτόκολλα και εξιτήρια χημειοθεραπείας: τους 4 κύκλους προεγχειρητικής (Docetaxel + Phesgo) και τους 3 κύκλους επικουρικής (ΑΧТ), με αναγραφή φαρμάκων, δόσεων και ημερομηνιών. Παράθεσε τα σχετικά έγγραφα.',
+        'Εντόπισε όλα τα πρωτόκολλα και εξιτήρια χημειοθεραπείας: τους 4 κύκλους προεγχειρητικής (Docetaxel + Phesgo) και τους 3 κύκλους επικουρικής (ΑΧΤ), με αναγραφή φαρμάκων, δόσεων και ημερομηνιών. Παράθεσε τα σχετικά έγγραφα.',
       promptTextBg:
         'Извади подробните протоколи от проведената неоадювантна (Docetaxel + Phesgo) и адювантна химиотерапия, включително приложени медикаменти, дози и дати. Цитирай документите.',
     },
@@ -73,9 +75,9 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
       icon: Zap,
       color: 'text-amber-600 bg-amber-50 border-amber-200',
       titleEl: 'Τεκμηρίωση Ακτινοθεραπείας (Πεδία & Δόσεις)',
-      titleBg: 'Документация от проведена лъчетерапия',
-      descEl: 'Πεδία ακτινοβόλησης, συνολική δόση (Gy) και περίοδος',
-      descBg: 'Епикриза от лъчетерапия с облъчвани области и обща доза',
+      titleBg: 'Документация от проведена лъчетерапия (дози и полета)',
+      descEl: 'Πεδία ακτινοβόλησης, συνολική δόση (Gy) και περίοδος θεραπείας',
+      descBg: 'Епикриза от лъчетерапия с облъчвани анатомични зони и дозировка',
       promptTextEl:
         'Εντόπισε τα έγγραφα και τα εξιτήρια της ακτινοθεραπείας: ποια ήταν τα πεδία ακτινοβόλησης, η συνολική δόση και η περίοδος θεραπείας; Παράθεσε συνδέσμους στα σχετικά έγγραφα.',
       promptTextBg:
@@ -85,12 +87,12 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
       id: 'imaging-pet-ct',
       icon: Scan,
       color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
-      titleEl: 'Απεικονίσεις: PET/CT (23.07.2026) & MRI',
-      titleBg: 'Образни изследвания: PET/CT (23.07.2026 г.) и MRI',
-      descEl: 'Προεγχειρητικό & μετεγχειρητικό PET/CT, MRI μαστών',
-      descBg: 'Сравнение на образните изследвания и изключване на рецидив',
+      titleEl: 'Απεικονίσεις: PET/CT (23.07.2026) & MRI Μαστών',
+      titleBg: 'Образни изследвания: PET/CT (23.07.2026 г.) и ЯМР',
+      descEl: 'Αρχικό PET/CT, μαγνητική μαστών και έλεγχος για υποτροπή',
+      descBg: 'Сравнение на образните изследвания и изключване на рецидив или метастази',
       promptTextEl:
-        'Συγκέντρωσε όλα τα απεικονιστικά ευρήματα του φακέλου: το αρχικό PET/CT (12/2025), τη μαγνητική μαστών (03/2026) и то контролното PET/CT της 23.07.2026. Υπάρχουν ενδείξεις υποτροπής ή μεταστάσεων; Παράθεσε τα σχετικά έγγραφα.',
+        'Συγκέντρωσε όλα τα απεικονιστικά ευρήματα του φακέλου: το αρχικό PET/CT (12/2025), τη μαγνητική μαστών (03/2026) και το μετεγχειρητικό PET/CT της 23.07.2026. Υπάρχουν ενδείξεις υποτροπής ή μεταστάσεων; Παράθεσε τα σχετικά έγγραφα.',
       promptTextBg:
         'Обобщи резултатите от образните изследвания в досието: PET/CT от 23.07.2026 г., MRI на млечни жлези и предходни изследвания. Има ли данни за рецидив? Цитирай документите.',
     },
@@ -100,7 +102,7 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
       color: 'text-rose-600 bg-rose-50 border-rose-200',
       titleEl: 'Καρδιολογικός Έλεγχος (LVEF / QTc) & CA 15-3',
       titleBg: 'Кардиологична оценка (LVEF, QTc) и CA 15-3',
-      descEl: 'Κλάσμα εξώθησης LVEF για αντι-HER2, QTc & τιμές CA 15-3',
+      descEl: 'Κλάσμα εξώθησης LVEF για αντι-HER2, QTc για ribociclib & δείκτης',
       descBg: 'Ехокардиография за фракция на изтласкване, ЕКГ и туморни маркери',
       promptTextEl:
         'Εντόπισε τα καρδιολογικά ευρήματα (υπερηχοκαρδιογράφημα LVEF ενόψει αντι-HER2 αγωγής, ΗΚΓ/QTc λόγω ribociclib) και τη διαχρονική πορεία του καρκινικού δείκτη CA 15-3. Παράθεσε τα σχετικά έγγραφα.',
@@ -155,7 +157,14 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
     [onSelectPrompt]
   )
 
-  const isGreek = locale === 'el'
+  const buttonLabel = isGreek ? 'Απαιτήσεις Ιατρού' : 'Изисквания на лекаря'
+  const headerTitle = isGreek
+    ? 'ΑΠΑΙΤΟΥΜΕΝΑ ΕΓΓΡΑΦΑ (ΔΡ. ΒΑΓΙΩΝΑΣ)'
+    : 'ИЗИСКВАНИ ДОКУМЕНТИ (Д-Р ВАГИОНАС)'
+  const headerSubtitle = isGreek
+    ? '7 κλινικά σημεία ελέγχου βάσει του πορίσματος 19.10.2026'
+    : '7 клинични изисквания от становището от 19.10.2026 г.'
+  const badgeLabel = isGreek ? '7 απαιτήσεις' : '7 изисквания'
 
   return (
     <div className="relative inline-block text-left" ref={menuRef}>
@@ -170,9 +179,7 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
         className="inline-flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 hover:text-sky-800 transition-all shadow-2xs active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <HelpCircle className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-        <span className="font-medium">
-          {isGreek ? 'Απαιτήσεις Ιατρού' : 'Изисквани документи'}
-        </span>
+        <span className="font-medium">{buttonLabel}</span>
         <ChevronDown
           className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${
             isOpen ? 'rotate-180' : ''
@@ -184,33 +191,28 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
         <div
           role="menu"
           aria-orientation="vertical"
-          className="absolute right-0 mt-2 w-[340px] sm:w-[450px] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150"
+          className="absolute right-0 mt-2 w-[340px] sm:w-[480px] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150"
         >
           {/* Header */}
           <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-800 font-mono">
-                {isGreek
-                  ? 'Απαιτούμενα Έγγραφα (Δρ. Βαγιώνας)'
-                  : 'Изисквани документи (Д-р Вагионас)'}
+                {headerTitle}
               </p>
               <p className="text-[10px] text-slate-500">
-                {isGreek
-                  ? '7 κλινικά σημεία ελέγχου βάσει του πορίσματος 19.10.2026'
-                  : '7 точки от клиничното становище от 19.10.2026 г.'}
+                {headerSubtitle}
               </p>
             </div>
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
-              7 изисквания
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
+              {badgeLabel}
             </span>
           </div>
 
           {/* List of Questions */}
-          <div className="space-y-1 max-h-[420px] overflow-y-auto pt-1">
+          <div className="space-y-1 max-h-[440px] overflow-y-auto pt-1">
             {items.map((item) => {
               const Icon = item.icon
-              const primaryTitle = isGreek ? item.titleEl : item.titleBg
-              const secondaryTitle = isGreek ? item.titleBg : item.titleEl
+              const title = isGreek ? item.titleEl : item.titleBg
               const subtitle = isGreek ? item.descEl : item.descBg
               const promptToSend = isGreek ? item.promptTextEl : item.promptTextBg
 
@@ -228,15 +230,10 @@ export const DoctorQuickDropdown: React.FC<DoctorQuickDropdownProps> = ({
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="text-xs font-bold text-slate-900 group-hover:text-sky-950 truncate">
-                        {primaryTitle}
-                      </p>
-                      <span className="text-[10px] text-slate-400 shrink-0 font-medium truncate max-w-[150px]">
-                        {secondaryTitle}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-snug line-clamp-1 mt-0.5">
+                    <p className="text-xs font-bold text-slate-900 group-hover:text-sky-950 leading-snug">
+                      {title}
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
                       {subtitle}
                     </p>
                   </div>
