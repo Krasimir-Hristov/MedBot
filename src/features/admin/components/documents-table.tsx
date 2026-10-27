@@ -98,8 +98,15 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                       aria-label={`${r.preview}: ${primaryTitle}`}
                       className="flex cursor-pointer flex-col text-left focus-visible:outline-2 focus-visible:outline-sky-600"
                     >
-                      <span className="line-clamp-1 font-semibold text-slate-900 transition-colors group-hover:text-sky-700">
-                        {primaryTitle}
+                      <span className="flex items-center gap-1.5">
+                        <span className="line-clamp-1 font-semibold text-slate-900 transition-colors group-hover:text-sky-700">
+                          {primaryTitle}
+                        </span>
+                        {doc.mimeType === 'application/pdf' && (
+                          <span className="shrink-0 rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 font-clinical-mono text-[9px] font-bold text-rose-700">
+                            PDF
+                          </span>
+                        )}
                       </span>
                       <span className="line-clamp-1 text-xs italic text-slate-500">{secondaryTitle}</span>
                     </button>
@@ -201,7 +208,14 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                 aria-label={`${r.preview}: ${primaryTitle}`}
                 className="flex cursor-pointer flex-col text-left"
               >
-                <span className="text-sm font-semibold text-slate-900">{primaryTitle}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold text-slate-900">{primaryTitle}</span>
+                  {doc.mimeType === 'application/pdf' && (
+                    <span className="shrink-0 rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 font-clinical-mono text-[9px] font-bold text-rose-700">
+                      PDF
+                    </span>
+                  )}
+                </span>
                 <span className="text-xs italic text-slate-500">{secondaryTitle}</span>
               </button>
 

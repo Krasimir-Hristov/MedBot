@@ -5,6 +5,7 @@ export type UploadStage = 'queued' | 'compressing' | 'analyzing' | 'done' | 'err
 export type UploadErrorCode =
   | 'unsupported'
   | 'too_large'
+  | 'too_large_pdf'
   | 'too_many'
   | 'compress'
   | 'network'

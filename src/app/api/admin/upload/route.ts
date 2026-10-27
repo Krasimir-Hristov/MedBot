@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { NextRequest, NextResponse } from 'next/server'
 import { createMedicalDocument } from '@/features/documents'
+import { UPLOAD_LIMITS } from '@/features/admin/constants'
 import { isAdminSession } from '@/features/admin/lib/guard'
 import {
   PipelineError,
@@ -9,12 +10,13 @@ import {
   extractMedicalDocumentData,
   toClinicalMetadata,
 } from '@/features/admin/lib/ai-pipeline'
-import { UploadPayloadSchema } from '@/features/admin/schemas'
+import { UploadPayloadSchema, resolveUploadMimeType } from '@/features/admin/schemas'
 import type { UploadApiResponse } from '@/features/admin/types'
+import { PayloadTooLargeError, readBoundedJson } from '@/lib/http-payload'
 
 // OCR (reasoning) + embedding на един документ може да отнеме до ~60s при плътен
-// гръцки скан. 120s дава реален запас пред лимита на платформата, а клиентската
-// опашка ограничава паралелността до 2 едновременни заявки.
+// гръцки скан или многостраничен PDF. 120s дава реален запас пред лимита на платформата,
+// а клиентската опашка ограничава паралелността до 2 едновременни заявки.
 export const maxDuration = 120
 
 const jsonResponse = (body: UploadApiResponse, status: number): NextResponse<UploadApiResponse> =>
@@ -27,11 +29,17 @@ export const POST = async (request: NextRequest): Promise<NextResponse<UploadApi
       return jsonResponse({ success: false, error: 'Нямате права за качване на документи.' }, 403)
     }
 
-    // 2. Парсване и валидация на тялото
+    // 2. Поточно парсване с лимит на байтовете (DoS защита) и валидация на тялото
     let rawBody: unknown
     try {
-      rawBody = await request.json()
-    } catch {
+      rawBody = await readBoundedJson(request, UPLOAD_LIMITS.maxRequestBodyBytes)
+    } catch (error) {
+      if (error instanceof PayloadTooLargeError) {
+        return jsonResponse(
+          { success: false, error: 'Файлът надвишава максимално допустимия размер (5 MB за PDF).' },
+          413
+        )
+      }
       return jsonResponse({ success: false, error: 'Невалидна заявка.' }, 400)
     }
 
@@ -42,8 +50,9 @@ export const POST = async (request: NextRequest): Promise<NextResponse<UploadApi
     }
 
     const { fileName, fileBase64 } = parsed.data
+    const mimeType = resolveUploadMimeType(fileBase64) ?? 'image/jpeg'
 
-    // 3. Мултимодален OCR + структуриран анализ
+    // 3. Мултимодален OCR + структуриран анализ (изображение или PDF)
     const result = await extractMedicalDocumentData(fileBase64, fileName)
     const metadata = toClinicalMetadata(result)
 
@@ -72,7 +81,7 @@ export const POST = async (request: NextRequest): Promise<NextResponse<UploadApi
       semanticText,
       embedding,
       fileBase64: rawBase64,
-      mimeType: 'image/jpeg',
+      mimeType,
     })
 
     revalidatePath('/admin')

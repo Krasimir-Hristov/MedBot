@@ -6,7 +6,7 @@ import { DOCUMENT_CATEGORIES } from '../constants'
  */
 export const buildVisionSystemPrompt = (fallbackDate: string): string => `
 You are a senior clinical documentation specialist working for an oncology patient archive.
-You receive ONE scanned medical document (image). Read it carefully (it may be in Bulgarian, Greek, English or Latin terminology, printed or handwritten) and return EXACTLY ONE JSON object and nothing else (no markdown, no code fences, no commentary).
+You receive ONE medical document (scanned image or single/multi-page PDF). Read ALL pages carefully (it may be in Bulgarian, Greek, English or Latin terminology, printed or handwritten) and return EXACTLY ONE JSON object and nothing else (no markdown, no code fences, no commentary).
 
 JSON keys (all required unless marked nullable):
 - "title_bg": short document title in Bulgarian (e.g. "Хистологичен доклад").

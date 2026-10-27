@@ -29,7 +29,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
    - Разговорен чатбот с емпатия, обясняващ изследванията и терминологията на разбираем език.
    - Бутон с микрофон за гласово диктуване на въпроси (Web Speech API `bg-BG` / Whisper) за майка ви, както и възможност за писане.
 3. **За администратора (`/admin`):**
-   - Качване на сканирани документи с автоматична компресия в браузъра (до JPEG max 1600px, ~350KB) и конвертиране в Base64.
+   - Качване на сканирани изображения (`.jpg`, `.jpeg`, `.jfif`, `.png`, `.webp`) с автоматична компресия в браузъра (до JPEG max 1600px, ~350KB) и PDF документи (до 5 MB в оригинал), конвертирани в Base64.
    - Автоматичен мултимодален анализ (OCR + структуриран JSON), генериране на семантичен вектор и запис в Neon PostgreSQL.
 
 ---
@@ -64,8 +64,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   - `extracted_text`: Пълен извлечен текст от OCR
   - `semantic_text`: Двуезичен текст за RAG индекс
   - `embedding`: Вектор `vector(1536)` за косинусно сходство
-  - `file_base64`: Base64 кодирано компресирано изображение
-  - `mime_type`: Тип на файла (`image/jpeg`)
+  - `file_base64`: Base64 кодирано компресирано изображение или PDF документ
+  - `mime_type`: Тип на файла (`image/jpeg`, `application/pdf`)
 - **`doctor_notes`**:
   - `id`: serial (primary key)
   - `note_el`: Оригинална бележка от лекаря на гръцки

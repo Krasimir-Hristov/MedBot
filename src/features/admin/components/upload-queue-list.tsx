@@ -5,6 +5,7 @@ import {
   CircleAlert,
   CircleCheck,
   FileImage,
+  FileText,
   LoaderCircle,
   RotateCw,
   X,
@@ -42,6 +43,7 @@ export const UploadQueueList: React.FC<UploadQueueListProps> = ({ items, onRetry
   const errorLabels: Record<UploadErrorCode, string> = {
     unsupported: u.errorUnsupported,
     too_large: u.errorTooLarge,
+    too_large_pdf: u.errorTooLargePdf,
     too_many: u.errorTooMany,
     compress: u.errorCompress,
     network: u.errorNetwork,
@@ -58,8 +60,16 @@ export const UploadQueueList: React.FC<UploadQueueListProps> = ({ items, onRetry
   return (
     <ul className="flex flex-col gap-2">
       {items.map((item) => {
+        const isPdf = item.fileName.trim().toLowerCase().endsWith('.pdf')
         const isBusy = item.stage === 'compressing' || item.stage === 'analyzing'
-        const canRetry = item.stage === 'error' && item.errorCode !== 'unsupported' && item.errorCode !== 'too_large' && item.errorCode !== 'too_many'
+        const canRetry =
+          item.stage === 'error' &&
+          item.errorCode !== 'unsupported' &&
+          item.errorCode !== 'too_large' &&
+          item.errorCode !== 'too_large_pdf' &&
+          item.errorCode !== 'too_many'
+        const stageText =
+          item.stage === 'compressing' && isPdf ? u.stagePreparing : stageLabels[item.stage]
 
         return (
           <li
@@ -70,7 +80,11 @@ export const UploadQueueList: React.FC<UploadQueueListProps> = ({ items, onRetry
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2">
-                <FileImage className="h-4 w-4 shrink-0 text-sky-600" aria-hidden="true" />
+                {isPdf ? (
+                  <FileText className="h-4 w-4 shrink-0 text-rose-600" aria-hidden="true" />
+                ) : (
+                  <FileImage className="h-4 w-4 shrink-0 text-sky-600" aria-hidden="true" />
+                )}
                 <span className="truncate text-xs font-semibold text-slate-900">{item.fileName}</span>
               </div>
               <span
@@ -79,7 +93,7 @@ export const UploadQueueList: React.FC<UploadQueueListProps> = ({ items, onRetry
                 {isBusy && <LoaderCircle className="h-3 w-3 animate-spin" aria-hidden="true" />}
                 {item.stage === 'done' && <CircleCheck className="h-3 w-3" aria-hidden="true" />}
                 {item.stage === 'error' && <CircleAlert className="h-3 w-3" aria-hidden="true" />}
-                {stageLabels[item.stage]}
+                {stageText}
               </span>
             </div>
 

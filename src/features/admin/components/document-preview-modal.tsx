@@ -5,6 +5,7 @@ import Image from 'next/image'
 import {
   AlertTriangle,
   ExternalLink,
+  FileText,
   Loader2,
   RotateCw,
   ZoomIn,
@@ -73,6 +74,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   }, [document.id, p.loadError])
 
   const catKey = getCategoryKey(document.category)
+  const isPdf = document.mimeType === 'application/pdf'
   const imageUrl = `/api/doc/${document.id}`
 
   return (
@@ -83,43 +85,50 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
       widthClass="max-w-5xl"
     >
       <div className="grid grid-cols-1 divide-y divide-slate-200 lg:grid-cols-12 lg:divide-x lg:divide-y-0">
-        {/* Лява колона: Скан с мащабиране и ротация */}
+        {/* Лява колона: Скан с мащабиране и ротация или вграден PDF преглед */}
         <div className="flex flex-col bg-slate-900/95 lg:col-span-7">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-900 px-3 py-2 text-slate-200">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                disabled={zoom <= MIN_ZOOM}
-                onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - ZOOM_STEP))}
-                aria-label={p.zoomOut}
-                className="cursor-pointer rounded p-1.5 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-40"
-              >
-                <ZoomOut className="h-4 w-4" aria-hidden="true" />
-              </button>
-              <span
-                aria-label={p.zoomLevel}
-                className="min-w-12 text-center font-clinical-mono text-xs text-slate-300"
-              >
-                {zoom}%
+            {isPdf ? (
+              <span className="inline-flex items-center gap-1.5 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 font-clinical-mono text-xs font-semibold text-rose-300">
+                <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                PDF
               </span>
-              <button
-                type="button"
-                disabled={zoom >= MAX_ZOOM}
-                onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP))}
-                aria-label={p.zoomIn}
-                className="cursor-pointer rounded p-1.5 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-40"
-              >
-                <ZoomIn className="h-4 w-4" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setRotation((deg) => (deg + 90) % 360)}
-                aria-label={p.rotate}
-                className="ml-1 cursor-pointer rounded p-1.5 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
-              >
-                <RotateCw className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={zoom <= MIN_ZOOM}
+                  onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - ZOOM_STEP))}
+                  aria-label={p.zoomOut}
+                  className="cursor-pointer rounded p-1.5 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-40"
+                >
+                  <ZoomOut className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <span
+                  aria-label={p.zoomLevel}
+                  className="min-w-12 text-center font-clinical-mono text-xs text-slate-300"
+                >
+                  {zoom}%
+                </span>
+                <button
+                  type="button"
+                  disabled={zoom >= MAX_ZOOM}
+                  onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP))}
+                  aria-label={p.zoomIn}
+                  className="cursor-pointer rounded p-1.5 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-40"
+                >
+                  <ZoomIn className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRotation((deg) => (deg + 90) % 360)}
+                  aria-label={p.rotate}
+                  className="ml-1 cursor-pointer rounded p-1.5 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                >
+                  <RotateCw className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
 
             <a
               href={imageUrl}
@@ -134,19 +143,42 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
           </div>
 
           <div className="flex max-h-[68vh] min-h-[360px] items-start justify-center overflow-auto p-4">
-            <Image
-              src={imageUrl}
-              alt={`${p.imageAlt}: ${primaryTitle}`}
-              width={1200}
-              height={1600}
-              unoptimized
-              style={{
-                width: `${zoom}%`,
-                height: 'auto',
-                transform: `rotate(${rotation}deg)`,
-              }}
-              className="max-w-none rounded bg-white shadow-lg transition-transform duration-150"
-            />
+            {isPdf ? (
+              <object
+                data={imageUrl}
+                type="application/pdf"
+                aria-label={`${p.imageAlt}: ${primaryTitle}`}
+                className="h-[64vh] min-h-[360px] w-full rounded bg-white shadow-lg"
+              >
+                <div className="flex h-full min-h-[320px] flex-col items-center justify-center gap-3 p-6 text-center">
+                  <p className="text-xs text-slate-600">{p.pdfFallback}</p>
+                  <a
+                    href={imageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={p.openNew}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-sky-700"
+                  >
+                    {p.openNew}
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                </div>
+              </object>
+            ) : (
+              <Image
+                src={imageUrl}
+                alt={`${p.imageAlt}: ${primaryTitle}`}
+                width={1200}
+                height={1600}
+                unoptimized
+                style={{
+                  width: `${zoom}%`,
+                  height: 'auto',
+                  transform: `rotate(${rotation}deg)`,
+                }}
+                className="max-w-none rounded bg-white shadow-lg transition-transform duration-150"
+              />
+            )}
           </div>
         </div>
 

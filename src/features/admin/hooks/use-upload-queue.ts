@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DocumentListItem } from '@/features/documents'
-import { ACCEPTED_IMAGE_TYPES, UPLOAD_LIMITS } from '../constants'
-import { compressMedicalImage } from '../lib/compress-image'
+import { classifyUploadFile, UPLOAD_LIMITS } from '../constants'
+import { prepareMedicalUploadFile } from '../lib/compress-image'
 import {
   isUploadApiResponse,
   type UploadErrorCode,
@@ -22,12 +22,9 @@ interface UseUploadQueueResult {
   clearFinished: () => void
 }
 
-const isAcceptedType = (type: string): boolean =>
-  (ACCEPTED_IMAGE_TYPES as readonly string[]).includes(type)
-
 /**
  * Опашка за качване с контролирана паралелност (`UPLOAD_LIMITS.maxConcurrent`):
- * компресия в браузъра -> POST към `/api/admin/upload` (OCR + вектор + запис).
+ * компресия/подготовка в браузъра -> POST към `/api/admin/upload` (OCR + вектор + запис).
  */
 export const useUploadQueue = ({ onDocumentCreated }: UseUploadQueueOptions): UseUploadQueueResult => {
   const [items, setItems] = useState<UploadQueueItem[]>([])
@@ -59,13 +56,17 @@ export const useUploadQueue = ({ onDocumentCreated }: UseUploadQueueOptions): Us
 
       let dataUrl: string
       try {
-        const compressed = await compressMedicalImage(file, (progress) =>
+        const prepared = await prepareMedicalUploadFile(file, (progress) =>
           patchItem(id, { progress: Math.round(progress) })
         )
-        dataUrl = compressed.dataUrl
-        patchItem(id, { stage: 'analyzing', progress: 100, compressedSize: compressed.sizeBytes })
+        dataUrl = prepared.dataUrl
+        patchItem(id, {
+          stage: 'analyzing',
+          progress: 100,
+          compressedSize: prepared.compressedSizeBytes,
+        })
       } catch (error) {
-        console.error('Image compression failed:', error)
+        console.error('File preparation/compression failed:', error)
         failItem(id, 'compress')
         return
       }
@@ -86,7 +87,13 @@ export const useUploadQueue = ({ onDocumentCreated }: UseUploadQueueOptions): Us
           return
         }
 
-        failItem(id, 'server', isUploadApiResponse(json) && !json.success ? json.error : undefined)
+        const serverError = isUploadApiResponse(json) && !json.success ? json.error : undefined
+        if (response.status === 413 && !serverError) {
+          failItem(id, 'too_large_pdf')
+          return
+        }
+
+        failItem(id, 'server', serverError)
       } catch (error) {
         console.error('Upload request failed:', error)
         failItem(id, 'network')
@@ -130,10 +137,14 @@ export const useUploadQueue = ({ onDocumentCreated }: UseUploadQueueOptions): Us
           progress: 0,
         }
 
-        if (!isAcceptedType(file.type)) {
+        const kind = classifyUploadFile(file)
+        if (!kind) {
           return { ...base, stage: 'error', errorCode: 'unsupported' }
         }
-        if (file.size > UPLOAD_LIMITS.maxFileBytes) {
+        if (kind === 'pdf' && file.size > UPLOAD_LIMITS.maxPdfBytes) {
+          return { ...base, stage: 'error', errorCode: 'too_large_pdf' }
+        }
+        if (kind === 'image' && file.size > UPLOAD_LIMITS.maxFileBytes) {
           return { ...base, stage: 'error', errorCode: 'too_large' }
         }
 

@@ -146,35 +146,65 @@ const VISION_MAX_TOKENS = 16_000
  */
 const VISION_REASONING_EFFORT = 'low'
 
+interface OpenRouterPdfPlugin {
+  id: 'file-parser'
+  pdf: { engine: 'native' }
+}
+
+type VisionCompletionRequest = Parameters<typeof openrouter.chat.completions.create>[0] & {
+  stream?: false
+  plugins?: OpenRouterPdfPlugin[]
+}
+
 /**
- * Мултимодален OCR + клиничен анализ на сканиран документ (Gemini през OpenRouter).
- * @param imageDataUrl компресиран JPEG във формат `data:image/jpeg;base64,...`
+ * Мултимодален OCR + клиничен анализ на сканиран документ или PDF (Gemini през OpenRouter).
+ * @param fileDataUrl компресиран JPEG (`data:image/jpeg;base64,...`) или PDF (`data:application/pdf;base64,...`)
  */
 export const extractMedicalDocumentData = async (
-  imageDataUrl: string,
+  fileDataUrl: string,
   fileName: string
 ): Promise<VisionOcrResult> => {
   ensureApiKey()
 
+  const isPdf = fileDataUrl.startsWith('data:application/pdf;base64,')
+  const normalizedPdfName = fileName.toLowerCase().endsWith('.pdf') ? fileName : `${fileName}.pdf`
+
+  const requestPayload: VisionCompletionRequest = {
+    model: AI_MODELS.vision,
+    temperature: 0,
+    max_tokens: VISION_MAX_TOKENS,
+    reasoning_effort: VISION_REASONING_EFFORT,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: buildVisionSystemPrompt(new Date().toISOString().slice(0, 10)) },
+      {
+        role: 'user',
+        content: isPdf
+          ? [
+              { type: 'text', text: buildVisionUserPrompt(fileName) },
+              {
+                type: 'file',
+                file: {
+                  filename: normalizedPdfName,
+                  file_data: fileDataUrl,
+                },
+              },
+            ]
+          : [
+              { type: 'text', text: buildVisionUserPrompt(fileName) },
+              { type: 'image_url', image_url: { url: fileDataUrl } },
+            ],
+      },
+    ],
+    ...(isPdf ? { plugins: [{ id: 'file-parser', pdf: { engine: 'native' } }] } : {}),
+  }
+
   let content: string
   try {
-    const completion = await openrouter.chat.completions.create({
-      model: AI_MODELS.vision,
-      temperature: 0,
-      max_tokens: VISION_MAX_TOKENS,
-      reasoning_effort: VISION_REASONING_EFFORT,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: buildVisionSystemPrompt(new Date().toISOString().slice(0, 10)) },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: buildVisionUserPrompt(fileName) },
-            { type: 'image_url', image_url: { url: imageDataUrl } },
-          ],
-        },
-      ],
-    })
+    const completion = await openrouter.chat.completions.create(requestPayload)
+    if (!('choices' in completion)) {
+      throw new Error('Unexpected streaming response from vision model')
+    }
     content = completion.choices[0]?.message?.content ?? ''
 
     // Отбелязваме отрязан отговор, за да не създаваме непълна транскрипция тихо.
@@ -193,7 +223,7 @@ export const extractMedicalDocumentData = async (
   const parsed = VisionOcrResultSchema.safeParse(parseJsonObject(content))
   if (!parsed.success) {
     console.error('Vision OCR validation failed:', parsed.error.issues)
-    throw new PipelineError('Не успяхме да разчетем документа. Опитайте с по-ясно изображение.')
+    throw new PipelineError('Не успяхме да разчетем документа. Опитайте с по-четлив файл или скан.')
   }
   return parsed.data
 }

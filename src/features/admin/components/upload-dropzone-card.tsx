@@ -3,7 +3,7 @@
 import React, { useRef, useState } from 'react'
 import { CloudUpload, ListChecks } from 'lucide-react'
 import { useTranslation } from '@/features/i18n'
-import { ACCEPTED_IMAGE_TYPES } from '../constants'
+import { ACCEPTED_FILE_INPUT } from '../constants'
 import { interpolate } from '../lib/format'
 import type { UploadQueueItem } from '../types'
 import { UploadQueueList } from './upload-queue-list'
@@ -95,7 +95,7 @@ export const UploadDropzoneCard: React.FC<UploadDropzoneCardProps> = ({
           ref={inputRef}
           type="file"
           multiple
-          accept={ACCEPTED_IMAGE_TYPES.join(',')}
+          accept={ACCEPTED_FILE_INPUT}
           aria-label={u.dropAria}
           className="hidden"
           onChange={(event) => {
