@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   PipelineError,
   buildBilingualSemanticText,
@@ -31,15 +31,9 @@ vi.mock('@/lib/openrouter', () => ({
 }))
 
 describe('AI Pipeline - Token Budget, Semantic Header Preservation & Embeddings', () => {
-  const originalKey = process.env.OPENROUTER_API_KEY
-
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.OPENROUTER_API_KEY = 'sk-or-test-key'
-  })
-
-  afterEach(() => {
-    process.env.OPENROUTER_API_KEY = originalKey
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test-key')
   })
 
   it('estimates tokens with higher weight for Greek characters (~1.15 tokens/char)', () => {

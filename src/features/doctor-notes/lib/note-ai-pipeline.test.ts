@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   NotePipelineError,
   parseJsonResponse,
@@ -27,15 +27,9 @@ vi.mock('@/features/rag', () => ({
 }))
 
 describe('Doctor Notes AI Pipeline - Translation, Multimodal PDF/Image & Vectorization', () => {
-  const originalKey = process.env.OPENROUTER_API_KEY
-
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.OPENROUTER_API_KEY = 'sk-or-test-notes-key'
-  })
-
-  afterEach(() => {
-    process.env.OPENROUTER_API_KEY = originalKey
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test-notes-key')
   })
 
   describe('parseJsonResponse', () => {

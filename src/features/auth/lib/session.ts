@@ -46,6 +46,7 @@ export const verifySessionToken = async (
     const key = getSecretKey()
     const { payload } = await jwtVerify(token, key, {
       algorithms: ['HS256'],
+      requiredClaims: ['exp'],
     })
 
     const role = payload.role as UserRole

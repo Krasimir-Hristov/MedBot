@@ -2,20 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { transcribeAudioWithWhisper, TranscriptionError } from './transcribe-server'
 
 describe('Whisper Audio Transcription (/api/v1/audio/transcriptions STT)', () => {
-  const originalApiKey = process.env.OPENROUTER_API_KEY
   const originalFetch = globalThis.fetch
 
   beforeEach(() => {
-    process.env.OPENROUTER_API_KEY = 'sk-or-whisper-test-key'
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-whisper-test-key')
   })
 
   afterEach(() => {
-    process.env.OPENROUTER_API_KEY = originalApiKey
     globalThis.fetch = originalFetch
   })
 
   it('throws TranscriptionError(500) when OPENROUTER_API_KEY is not configured', async () => {
-    delete process.env.OPENROUTER_API_KEY
+    vi.stubEnv('OPENROUTER_API_KEY', '')
 
     await expect(
       transcribeAudioWithWhisper({

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { SignJWT } from 'jose'
 import { verifyPinAndGetRole } from './lib/pin'
 import { createSessionToken, verifySessionToken } from './lib/session'
@@ -26,28 +26,14 @@ vi.mock('next/navigation', () => ({
 const TEST_SECRET = 'medbot-auth-unit-test-secret-key-minimum-32-bytes!'
 
 describe('Authentication Security - HMAC PIN, JWT Session & Brute-Force Defense', () => {
-  const envBackup = {
-    SESSION_SECRET: process.env.SESSION_SECRET,
-    ADMIN_PIN: process.env.ADMIN_PIN,
-    DOCTOR_PIN: process.env.DOCTOR_PIN,
-    PATIENT_PIN: process.env.PATIENT_PIN,
-  }
-
   beforeEach(() => {
-    process.env.SESSION_SECRET = TEST_SECRET
-    process.env.ADMIN_PIN = 'ADM999'
-    process.env.DOCTOR_PIN = 'DOC777'
-    process.env.PATIENT_PIN = 'PAT111'
+    vi.stubEnv('SESSION_SECRET', TEST_SECRET)
+    vi.stubEnv('ADMIN_PIN', 'ADM999')
+    vi.stubEnv('DOCTOR_PIN', 'DOC777')
+    vi.stubEnv('PATIENT_PIN', 'PAT111')
     mockRequestHeaders = {}
     mockCookieSet.mockClear()
     mockCookieDelete.mockClear()
-  })
-
-  afterEach(() => {
-    process.env.SESSION_SECRET = envBackup.SESSION_SECRET
-    process.env.ADMIN_PIN = envBackup.ADMIN_PIN
-    process.env.DOCTOR_PIN = envBackup.DOCTOR_PIN
-    process.env.PATIENT_PIN = envBackup.PATIENT_PIN
   })
 
   describe('verifyPinAndGetRole (HMAC timingSafeEqual)', () => {
@@ -88,8 +74,18 @@ describe('Authentication Security - HMAC PIN, JWT Session & Brute-Force Defense'
 
       const unknownRoleToken = await new SignJWT({ role: 'superadmin', createdAt: 1000 })
         .setProtectedHeader({ alg: 'HS256' })
+        .setExpirationTime('1h')
         .sign(new TextEncoder().encode(TEST_SECRET))
       expect(await verifySessionToken(unknownRoleToken)).toBeNull()
+    })
+
+    it('rejects signed admin token missing exp claim', async () => {
+      const tokenWithoutExp = await new SignJWT({ role: 'admin', createdAt: 1000 })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .sign(new TextEncoder().encode(TEST_SECRET))
+
+      expect(await verifySessionToken(tokenWithoutExp)).toBeNull()
     })
   })
 

@@ -24,12 +24,12 @@
 
 ## 2. Архитектура на тестовото покритие (4 стълба)
 
-Обхватът включва **25 тестови файла** с общо **132 автоматизирани теста**, разпределени в четири критични стълба:
+Обхватът включва **25 тестови файла** с общо **134 автоматизирани теста**, разпределени в четири критични стълба:
 
 ```mermaid
 flowchart TD
-    Suite["MedBot Test Suite (25 файла / 132 теста)"]
-    P1["1. Сигурност и Периметър (5 файла / 29 теста)"]
+    Suite["MedBot Test Suite (25 файла / 134 теста)"]
+    P1["1. Сигурност и Периметър (5 файла / 31 теста)"]
     P2["2. Клинична и AI Логика (8 файла / 41 теста)"]
     P3["3. Валидация и Нормализация (5 файла / 31 теста)"]
     P4["4. DAL, Транзакции и API (7 файла / 31 теста)"]
@@ -58,12 +58,12 @@ flowchart TD
 
 ## 3. Пълен каталог на тестовите пакети
 
-### 🛡️ Стълб 1: Сигурност, Автентикация и Защита на периметъра (29 теста)
+### 🛡️ Стълб 1: Сигурност, Автентикация и Защита на периметъра (31 теста)
 
 | Тестов файл | Тестван модул | Брой | Покрити инварианти за сигурност |
 | :--- | :--- | :---: | :--- |
-| `src/proxy.test.ts` | `src/proxy.ts` | 8 | Премахване на `x-middleware-subrequest` / `x-middleware-rewrite` / `x-middleware-next` (CVE-2025-29927); пренасочване от `/` по роля; RBAC изолация на `/admin`, `/doctor`, `/patient` и API маршрутите (`401` срещу `403`). |
-| `src/features/auth/auth-security.test.ts` | `pin.ts`, `session.ts`, `actions.ts` | 6 | Сравнение на ПИН с константно време чрез HMAC-SHA256 (`timingSafeEqual`); подписване и верификация на HS256 JWT с `jti`; защита срещу подправен `X-Forwarded-For` при brute-force лимитиране. |
+| `src/proxy.test.ts` | `src/proxy.ts` | 9 | Премахване на `x-middleware-subrequest` / `x-middleware-rewrite` / `x-middleware-next` (CVE-2025-29927); задължително изискване за валиден `exp` клейм в JWT; пренасочване от `/` по роля; RBAC изолация на `/admin`, `/doctor`, `/patient` и API маршрутите (`401` срещу `403`). |
+| `src/features/auth/auth-security.test.ts` | `pin.ts`, `session.ts`, `actions.ts` | 7 | Сравнение на ПИН с константно време чрез HMAC-SHA256 (`timingSafeEqual`); задължителна верификация за наличен `exp` клейм; подписване и верификация на HS256 JWT с `jti`; защита срещу подправен `X-Forwarded-For` при brute-force лимитиране. |
 | `src/features/auth/lib/role-guard.test.ts` | `role-guard.ts` | 7 | Сървърна защита `requireRoles` (`401`/`403` `AuthError`) и изолиран по потребител (`jti`) rate limiter с автоматично нулиране след прозореца. |
 | `src/lib/http-payload.test.ts` | `http-payload.ts` | 5 | Поточно четене на JSON с лимит по байтове (`PayloadTooLargeError` `413`), включително при фалшифициран малък `Content-Length` хедър. |
 | `src/app/api/doc/[id]/route.test.ts` | `/api/doc/[id]` | 3 | Defense-in-depth забрана за достъп на `patient` (`403`) до сурови онкологични сканове, валидация на ID (`400`/`404`) и бинарно декодиране с `Cache-Control: private`. |

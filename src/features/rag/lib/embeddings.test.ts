@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createEmbedding, expandBilingualQuery, RagError } from './embeddings'
 import { openrouter } from '@/lib/openrouter'
 
@@ -20,20 +20,14 @@ vi.mock('@/lib/openrouter', () => ({
 }))
 
 describe('RAG Embeddings & Bilingual Query Expansion', () => {
-  const originalApiKey = process.env.OPENROUTER_API_KEY
-
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.OPENROUTER_API_KEY = 'sk-or-test-key'
-  })
-
-  afterEach(() => {
-    process.env.OPENROUTER_API_KEY = originalApiKey
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test-key')
   })
 
   describe('createEmbedding', () => {
     it('throws RagError(500) when OPENROUTER_API_KEY is missing', async () => {
-      delete process.env.OPENROUTER_API_KEY
+      vi.stubEnv('OPENROUTER_API_KEY', '')
 
       await expect(createEmbedding('Туморни маркери')).rejects.toMatchObject({
         name: 'RagError',

@@ -50,18 +50,18 @@ describe('Patient Guidelines - Zod Validation Schemas', () => {
       expect(parsed.success).toBe(false)
     })
 
-    it('rejects negative or non-integer item IDs', () => {
-      const invalid = {
+    it('rejects negative, zero, or non-integer item IDs separately', () => {
+      const base = {
         category: 'general',
         titleBg: 'Общи',
         titleEl: 'Γενικά',
         noteBg: 'Почивка.',
         noteEl: '• Ανάπαυση.',
-        approvedItemIds: [-1, 2.5],
       }
 
-      const parsed = CategoryPreviewItemSchema.safeParse(invalid)
-      expect(parsed.success).toBe(false)
+      expect(CategoryPreviewItemSchema.safeParse({ ...base, approvedItemIds: [-1] }).success).toBe(false)
+      expect(CategoryPreviewItemSchema.safeParse({ ...base, approvedItemIds: [0] }).success).toBe(false)
+      expect(CategoryPreviewItemSchema.safeParse({ ...base, approvedItemIds: [2.5] }).success).toBe(false)
     })
   })
 

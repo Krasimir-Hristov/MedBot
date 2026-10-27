@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { SignJWT } from 'jose'
 import { proxy } from './proxy'
@@ -26,14 +26,8 @@ const buildRequest = (
 }
 
 describe('Edge Proxy - CVE-2025-29927 Mitigation & RBAC Routing', () => {
-  const originalSecret = process.env.SESSION_SECRET
-
   beforeEach(() => {
-    process.env.SESSION_SECRET = TEST_SECRET
-  })
-
-  afterEach(() => {
-    process.env.SESSION_SECRET = originalSecret
+    vi.stubEnv('SESSION_SECRET', TEST_SECRET)
   })
 
   describe('CVE-2025-29927 Defensive Header Scrubbing', () => {
@@ -98,6 +92,17 @@ describe('Edge Proxy - CVE-2025-29927 Mitigation & RBAC Routing', () => {
 
       const allowed = await proxy(buildRequest('/admin', { token: adminToken }))
       expect(allowed.status).toBe(200)
+    })
+
+    it('rejects tokens without exp claim and redirects to /', async () => {
+      const key = new TextEncoder().encode(TEST_SECRET)
+      const tokenWithoutExp = await new SignJWT({ role: 'admin' })
+        .setProtectedHeader({ alg: 'HS256' })
+        .sign(key)
+
+      const blocked = await proxy(buildRequest('/admin', { token: tokenWithoutExp }))
+      expect(blocked.status).toBe(307)
+      expect(new URL(blocked.headers.get('location') ?? '').pathname).toBe('/')
     })
 
     it('isolates /doctor and /patient portals between doctor and patient roles', async () => {
