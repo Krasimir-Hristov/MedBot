@@ -28,8 +28,9 @@ export const DossierSummaryTab: React.FC<DossierSummaryTabProps> = ({
   })
 
   const warnings: string[] = []
-  if (staleness.newCount > 0) warnings.push(fillCount(t.doctor.summary.newDocsWarning, staleness.newCount))
-  if (staleness.removedCount > 0)
+  if (staleness && staleness.newCount > 0)
+    warnings.push(fillCount(t.doctor.summary.newDocsWarning, staleness.newCount))
+  if (staleness && staleness.removedCount > 0)
     warnings.push(fillCount(t.doctor.summary.removedDocsWarning, staleness.removedCount))
   if (summary && summary.truncatedDocCount > 0)
     warnings.push(fillCount(t.doctor.summary.truncatedWarning, summary.truncatedDocCount))

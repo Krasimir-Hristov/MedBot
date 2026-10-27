@@ -26,10 +26,14 @@ export const PublishPreviewModal: React.FC<PublishPreviewModalProps> = ({
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
-    if (!dialog.open) {
-      dialog.showModal()
+    if (isOpen) {
+      if (!dialog.open) {
+        dialog.showModal()
+      }
+    } else if (dialog.open) {
+      dialog.close()
     }
-  }, [])
+  }, [isOpen, items])
 
   if (!isOpen || !items) return null
 

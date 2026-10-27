@@ -7,6 +7,13 @@ import { getDoctorNotesList, getLatestDoctorNotesByCategory } from '@/features/d
 import { PATIENT_DEFAULT_SESSION_ID } from './constants'
 import type { PatientChatMessage, PatientPortalData } from './types'
 
+export class SessionNotFoundError extends Error {
+  constructor(message = 'Сесията не е намерена.') {
+    super(message)
+    this.name = 'SessionNotFoundError'
+  }
+}
+
 /**
  * Връща списък с всички чат сесии на пациента
  */
@@ -39,7 +46,7 @@ export const getPatientChatSessionById = async (
     return rows[0] ?? null
   } catch (error) {
     console.error('Error fetching patient chat session by id:', error)
-    return null
+    throw error
   }
 }
 
@@ -83,10 +90,13 @@ export const renamePatientChatSession = async (
       .returning()
 
     if (!rows[0]) {
-      throw new Error('Сесията не е намерена.')
+      throw new SessionNotFoundError()
     }
     return rows[0]
   } catch (error) {
+    if (error instanceof SessionNotFoundError) {
+      throw error
+    }
     console.error('Error renaming patient chat session:', error)
     throw error
   }
@@ -103,10 +113,13 @@ export const deletePatientChatSession = async (sessionId: string): Promise<boole
       .returning({ id: chatSessions.id })
 
     if (rows.length === 0) {
-      throw new Error('Сесията не е намерена.')
+      throw new SessionNotFoundError()
     }
     return true
   } catch (error) {
+    if (error instanceof SessionNotFoundError) {
+      throw error
+    }
     console.error('Error deleting patient chat session:', error)
     throw error
   }
@@ -215,7 +228,7 @@ export const savePatientChatTurn = async (
 export const resetPatientChatSession = async (sessionId: string): Promise<string> => {
   try {
     const session = await getPatientChatSessionById(sessionId)
-    if (!session) throw new Error('Сесията не е намерена.')
+    if (!session) throw new SessionNotFoundError()
 
     await db.delete(chatMessages).where(eq(chatMessages.sessionId, sessionId))
     await db

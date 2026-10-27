@@ -32,7 +32,7 @@ export const CategoryPreviewItemSchema = z.object({
   titleEl: z.string().min(1),
   noteBg: z.string().min(1),
   noteEl: z.string().min(1),
-  approvedItemIds: z.array(z.number().int().positive()),
+  approvedItemIds: z.array(z.number().int().positive()).min(1),
 })
 
 export const PublishGuidelinesSchema = z.object({

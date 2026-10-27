@@ -9,6 +9,13 @@ import type {
   UpdateGuidelineInput,
 } from './types'
 
+export {
+  GuidelinePublishConflictError,
+  getGuidelineItemsByIds,
+  publishCategoryGuidelineNote,
+  type PublishCategoryGuidelineNoteInput,
+} from './publish-dal'
+
 const mapRow = (row: typeof patientGuidelineItems.$inferSelect): PatientGuidelineItemEntity => ({
   id: row.id,
   category: row.category as GuidelineCategory,
@@ -166,7 +173,7 @@ export const markGuidelinesAsPublished = async (ids: number[]): Promise<void> =>
     await db
       .update(patientGuidelineItems)
       .set({ publishedAt: new Date(), updatedAt: new Date() })
-      .where(inArray(patientGuidelineItems.id, ids))
+      .where(and(inArray(patientGuidelineItems.id, ids), isNull(patientGuidelineItems.publishedAt)))
   } catch (error) {
     console.error('Error marking guidelines as published:', error)
     throw new Error('Грешка при маркиране на насоките като публикувани.')

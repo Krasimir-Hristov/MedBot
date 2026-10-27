@@ -60,15 +60,26 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     const documentIds = docs.map((d) => d.id)
     const systemPrompt = buildSummarySystemPrompt(context.text, docs.length)
 
+    if (request.signal.aborted) {
+      return new Response(null, { status: 499 })
+    }
+
     const abortController = new AbortController()
     let cleanedUp = false
-    const onAbort = () => abortController.abort()
-    request.signal.addEventListener('abort', onAbort)
-
     const cleanup = () => {
       if (cleanedUp) return
       cleanedUp = true
       request.signal.removeEventListener('abort', onAbort)
+    }
+    const onAbort = () => {
+      abortController.abort()
+      cleanup()
+    }
+    request.signal.addEventListener('abort', onAbort)
+
+    if (request.signal.aborted) {
+      cleanup()
+      return new Response(null, { status: 499 })
     }
 
     const stream = await openrouter.chat.completions.create(
@@ -112,8 +123,14 @@ export const POST = async (request: NextRequest): Promise<Response> => {
           }
 
           const isTruncated = lastFinishReason === 'length' || lastFinishReason === 'content_filter'
-          if (complete.trim().length < 200 || isTruncated) {
-            console.warn('Summary output too short or truncated:', complete.trim(), 'finishReason:', lastFinishReason)
+          const isCompleted = lastFinishReason === 'stop'
+          if (!isCompleted || complete.trim().length < 200 || isTruncated) {
+            console.warn(
+              'Summary output incomplete, too short, or truncated:',
+              complete.trim(),
+              'finishReason:',
+              lastFinishReason
+            )
             send({
               type: 'error',
               message: isTruncated

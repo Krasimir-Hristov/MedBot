@@ -101,11 +101,10 @@ export const POST = async (request: NextRequest): Promise<Response> => {
             }
           }
           cleanup()
-          controller.close()
-
           if (accumulatedText.trim()) {
             await savePatientChatTurn(sessionId, message, accumulatedText.trim())
           }
+          controller.close()
         } catch (streamError) {
           cleanup()
           console.error('Error during patient chat stream:', streamError)

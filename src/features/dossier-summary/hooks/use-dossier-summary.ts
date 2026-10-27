@@ -11,7 +11,7 @@ interface UseDossierSummaryArgs {
 
 interface UseDossierSummaryResult {
   summary: DossierSummaryItem | null
-  staleness: SummaryStaleness
+  staleness: SummaryStaleness | null
   streamingContent: string
   isGenerating: boolean
   error: string | null
@@ -37,7 +37,7 @@ export const useDossierSummary = ({
   errorMessage,
 }: UseDossierSummaryArgs): UseDossierSummaryResult => {
   const [summary, setSummary] = useState<DossierSummaryItem | null>(initialSummary)
-  const [staleness, setStaleness] = useState<SummaryStaleness>(initialStaleness)
+  const [staleness, setStaleness] = useState<SummaryStaleness | null>(initialStaleness)
   const [streamingContent, setStreamingContent] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -91,16 +91,40 @@ export const useDossierSummary = ({
           } else if (payload.type === 'done' && payload.summary) {
             receivedTerminalEvent = true
             setSummary(payload.summary)
+            setStaleness(null)
             try {
               const stateRes = await fetch('/api/doctor/summary')
-              if (stateRes.ok) {
-                const stateData = (await stateRes.json()) as { staleness?: SummaryStaleness }
-                if (stateData.staleness) {
-                  setStaleness(stateData.staleness)
-                }
+              const stateData: unknown = await stateRes.json().catch(() => null)
+              if (!stateRes.ok) {
+                const apiError =
+                  typeof stateData === 'object' &&
+                  stateData !== null &&
+                  typeof (stateData as { error?: unknown }).error === 'string'
+                    ? (stateData as { error: string }).error
+                    : errorMessage
+                throw new Error(apiError)
               }
-            } catch {
-              setStaleness({ newCount: 0, removedCount: 0 })
+              const nextStaleness =
+                typeof stateData === 'object' &&
+                stateData !== null &&
+                typeof (stateData as { staleness?: unknown }).staleness === 'object' &&
+                (stateData as { staleness?: unknown }).staleness !== null
+                  ? (stateData as { staleness: SummaryStaleness }).staleness
+                  : null
+              if (
+                !nextStaleness ||
+                typeof nextStaleness.newCount !== 'number' ||
+                typeof nextStaleness.removedCount !== 'number'
+              ) {
+                throw new Error(errorMessage)
+              }
+              setStaleness(nextStaleness)
+            } catch (stalenessErr) {
+              setStaleness(null)
+              failed =
+                stalenessErr instanceof Error && stalenessErr.message
+                  ? stalenessErr.message
+                  : errorMessage
             }
           } else if (payload.type === 'error') {
             receivedTerminalEvent = true

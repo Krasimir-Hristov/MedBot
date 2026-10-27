@@ -1,8 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireRoles } from '@/features/auth/lib/role-guard'
-import { getOrCreateActivePatientSession, resetPatientChatSession } from './dal'
+import { AuthError, requireRoles } from '@/features/auth/lib/role-guard'
+import {
+  SessionNotFoundError,
+  getOrCreateActivePatientSession,
+  resetPatientChatSession,
+} from './dal'
 
 export interface ResetActionResult {
   success: boolean
@@ -22,9 +26,13 @@ export const startNewPatientConversationAction = async (): Promise<ResetActionRe
     return { success: true }
   } catch (error) {
     console.error('startNewPatientConversationAction error:', error)
+    const safeError =
+      error instanceof SessionNotFoundError || error instanceof AuthError
+        ? error.message
+        : 'Грешка при изчистване на разговора.'
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Грешка при изчистване на разговора.',
+      error: safeError,
     }
   }
 }

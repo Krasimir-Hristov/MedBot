@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE_NAME, verifySessionToken } from '@/features/auth/lib/session'
 import { checkScopedRateLimit } from '@/features/auth/lib/role-guard'
-import { getApprovedGuidelineItems } from '@/features/patient-guidelines/dal'
+import {
+  GuidelinePublishConflictError,
+  getApprovedGuidelineItems,
+  getGuidelineItemsByIds,
+} from '@/features/patient-guidelines/dal'
 import { PublishGuidelinesSchema } from '@/features/patient-guidelines/schemas'
 import { publishGuidelinesToPatient } from '@/features/patient-guidelines/lib/publish-pipeline'
 
@@ -39,32 +43,74 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
       )
     }
 
-    // Consistency check: ensure current approved items in DB match payload
-    const currentApproved = await getApprovedGuidelineItems()
-    const currentApprovedMap = new Map(currentApproved.map((i) => [i.id, i]))
-    const currentApprovedIds = new Set(currentApproved.map((i) => i.id))
-    const payloadIds = new Set(parsed.data.items.flatMap((i) => i.approvedItemIds))
+    // Consistency check: ensure payload IDs appear once, belong to their category, and match DB state
+    const allPayloadIds = parsed.data.items.flatMap((i) => i.approvedItemIds)
+    const [currentUnpublishedApproved, referencedItems] = await Promise.all([
+      getApprovedGuidelineItems(),
+      getGuidelineItemsByIds(Array.from(new Set(allPayloadIds))),
+    ])
 
-    // If there is any discrepancy in set size or items, flag 409 stale conflict
-    let hasMismatch = currentApprovedIds.size !== payloadIds.size
-    if (!hasMismatch) {
-      for (const id of payloadIds) {
-        if (!currentApprovedIds.has(id)) {
+    const referencedMap = new Map(referencedItems.map((i) => [i.id, i]))
+    const seenIds = new Set<number>()
+    const seenCategories = new Set<string>()
+    let hasMismatch = false
+
+    for (const catItem of parsed.data.items) {
+      if (catItem.approvedItemIds.length === 0 || seenCategories.has(catItem.category)) {
+        hasMismatch = true
+        break
+      }
+      seenCategories.add(catItem.category)
+
+      const expectedPoints: string[] = []
+      let publishedInCat = 0
+
+      for (const id of catItem.approvedItemIds) {
+        if (seenIds.has(id)) {
           hasMismatch = true
           break
         }
+        seenIds.add(id)
+
+        const approvedItem = referencedMap.get(id)
+        if (
+          !approvedItem ||
+          approvedItem.status !== 'approved' ||
+          approvedItem.category !== catItem.category
+        ) {
+          hasMismatch = true
+          break
+        }
+
+        if (approvedItem.publishedAt !== null) {
+          publishedInCat += 1
+        }
+
+        const trimmed = approvedItem.textEl.trim()
+        if (!trimmed) {
+          hasMismatch = true
+          break
+        }
+        expectedPoints.push(`• ${trimmed}`)
+      }
+
+      if (hasMismatch) break
+
+      if (publishedInCat > 0 && publishedInCat !== catItem.approvedItemIds.length) {
+        hasMismatch = true
+        break
+      }
+
+      const expectedNoteEl = expectedPoints.join('\n')
+      if (catItem.noteEl.trim() !== expectedNoteEl) {
+        hasMismatch = true
+        break
       }
     }
 
     if (!hasMismatch) {
-      // Content check: verify noteEl matches concatenation of current textEl
-      for (const catItem of parsed.data.items) {
-        const expectedNoteEl = catItem.approvedItemIds
-          .map((id) => currentApprovedMap.get(id)?.textEl?.trim())
-          .filter(Boolean)
-          .map((text) => `• ${text}`)
-          .join('\n')
-        if (catItem.noteEl.trim() !== expectedNoteEl) {
+      for (const unpublishedItem of currentUnpublishedApproved) {
+        if (!seenIds.has(unpublishedItem.id)) {
           hasMismatch = true
           break
         }
@@ -88,6 +134,15 @@ export const POST = async (request: NextRequest): Promise<NextResponse> => {
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    if (error instanceof GuidelinePublishConflictError) {
+      return NextResponse.json(
+        {
+          error:
+            'Насоките са променени след генериране на прегледа. Моля, отворете прегледа отново.',
+        },
+        { status: 409 }
+      )
+    }
     console.error('Error in /api/doctor/guidelines/publish:', error)
     return NextResponse.json(
       { error: 'Възникна грешка при публикуване на насоките.' },

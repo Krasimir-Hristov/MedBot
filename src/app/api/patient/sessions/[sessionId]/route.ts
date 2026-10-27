@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE_NAME, verifySessionToken } from '@/features/auth/lib/session'
 import {
+  SessionNotFoundError,
   deletePatientChatSession,
   getPatientChatMessages,
   renamePatientChatSession,
@@ -67,8 +68,7 @@ export const PATCH = async (
       const updated = await renamePatientChatSession(sessionId, parsed.data.title)
       return NextResponse.json({ session: updated })
     } catch (renameErr) {
-      const msg = renameErr instanceof Error ? renameErr.message : ''
-      if (msg.includes('намерена') || msg.includes('not found')) {
+      if (renameErr instanceof SessionNotFoundError) {
         return NextResponse.json({ error: 'Чат сесията не е намерена.' }, { status: 404 })
       }
       throw renameErr
@@ -98,8 +98,7 @@ export const DELETE = async (
       await deletePatientChatSession(sessionId)
       return NextResponse.json({ success: true })
     } catch (deleteErr) {
-      const msg = deleteErr instanceof Error ? deleteErr.message : ''
-      if (msg.includes('намерена') || msg.includes('not found')) {
+      if (deleteErr instanceof SessionNotFoundError) {
         return NextResponse.json({ error: 'Чат сесията не е намерена.' }, { status: 404 })
       }
       throw deleteErr

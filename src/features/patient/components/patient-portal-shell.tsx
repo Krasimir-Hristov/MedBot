@@ -82,6 +82,7 @@ export const PatientPortalShell: React.FC<PatientPortalShellProps> = ({ initialD
   }
 
   const handleDeleteSession = async (sessionId: string) => {
+    if (isStreaming && sessionId === activeSessionId) return
     try {
       const res = await fetch(`/api/patient/sessions/${sessionId}`, {
         method: 'DELETE',

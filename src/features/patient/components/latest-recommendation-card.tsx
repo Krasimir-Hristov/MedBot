@@ -54,7 +54,7 @@ export const LatestRecommendationCard: React.FC<LatestRecommendationCardProps> =
       } else {
         onAskAboutCategory?.(
           isGreek
-            ? 'Ποια φάρμακα λαμβάνω и σε ποιον πυρετό να επικοινωνήσω με τον ιατρό;'
+            ? 'Ποια φάρμακα λαμβάνω και σε ποιον πυρετό να επικοινωνήσω με τον ιατρό;'
             : 'Какви лекарства вземам и при каква температура да се обадя на лекаря?'
         )
       }

@@ -2,9 +2,12 @@ import 'server-only'
 import { revalidatePath } from 'next/cache'
 import { AI_MODELS, openrouter } from '@/lib/openrouter'
 import { createEmbedding } from '@/features/rag'
-import { createDoctorNote } from '@/features/doctor-notes/dal'
 import { NOTE_CATEGORY_LABELS_BG, NOTE_CATEGORY_LABELS_EL } from '@/features/doctor-notes/constants'
-import { markGuidelinesAsPublished } from '../dal'
+import {
+  GuidelinePublishConflictError,
+  getGuidelineItemsByIds,
+  publishCategoryGuidelineNote,
+} from '../dal'
 import type { CategoryPreviewItem, PatientGuidelineItemEntity } from '../types'
 import type { GuidelineCategory } from '../constants'
 
@@ -44,21 +47,33 @@ Return a JSON object:
       messages: [{ role: 'user', content: prompt }],
     })
 
-    const raw = completion.choices[0]?.message?.content || '{}'
+    const raw = completion.choices[0]?.message?.content
+    if (!raw) {
+      throw new Error('Empty translation response from AI model')
+    }
     const parsed = JSON.parse(raw) as Partial<TranslationResult>
+    const noteBg = typeof parsed.note_bg === 'string' ? parsed.note_bg.trim() : ''
+    if (!noteBg) {
+      throw new Error('Missing translated note_bg in AI response')
+    }
+
+    const titleBg =
+      typeof parsed.title_bg === 'string' && parsed.title_bg.trim()
+        ? parsed.title_bg.trim()
+        : fallbackTitleBg
+    const titleEl =
+      typeof parsed.title_el === 'string' && parsed.title_el.trim()
+        ? parsed.title_el.trim()
+        : fallbackTitleEl
 
     return {
-      title_bg: (parsed.title_bg || fallbackTitleBg).trim(),
-      title_el: (parsed.title_el || fallbackTitleEl).trim(),
-      note_bg: (parsed.note_bg || bulletTextEl).trim(),
+      title_bg: titleBg,
+      title_el: titleEl,
+      note_bg: noteBg,
     }
   } catch (error) {
     console.error(`Translation error for category ${category}:`, error)
-    return {
-      title_bg: fallbackTitleBg,
-      title_el: fallbackTitleEl,
-      note_bg: bulletTextEl,
-    }
+    throw new Error('Неуспешен превод на насоките на български език.')
   }
 }
 
@@ -76,9 +91,12 @@ export const generateCategoryPreviewList = async (
   const results: CategoryPreviewItem[] = []
 
   for (const [category, items] of byCategory.entries()) {
-    if (items.length === 0) continue
+    const validItems = items
+      .map((i) => ({ ...i, trimmedText: i.textEl.trim() }))
+      .filter((i) => Boolean(i.trimmedText))
+    if (validItems.length === 0) continue
 
-    const greekPoints = items.map((i) => i.textEl.trim()).filter(Boolean)
+    const greekPoints = validItems.map((i) => i.trimmedText)
     const noteEl = greekPoints.map((p) => `• ${p}`).join('\n')
     const translation = await translateCategoryToBulgarian(category, greekPoints)
 
@@ -88,7 +106,7 @@ export const generateCategoryPreviewList = async (
       titleEl: translation.title_el,
       noteBg: translation.note_bg,
       noteEl,
-      approvedItemIds: items.map((i) => i.id),
+      approvedItemIds: validItems.map((i) => i.id),
     })
   }
 
@@ -99,7 +117,54 @@ export const publishGuidelinesToPatient = async (
   previewItems: CategoryPreviewItem[],
   doctorName = 'Д-р Специалист'
 ): Promise<void> => {
+  const seenIds = new Set<number>()
   for (const item of previewItems) {
+    if (item.approvedItemIds.length === 0 || !item.noteBg.trim()) {
+      throw new GuidelinePublishConflictError()
+    }
+    for (const id of item.approvedItemIds) {
+      if (seenIds.has(id)) {
+        throw new GuidelinePublishConflictError()
+      }
+      seenIds.add(id)
+    }
+  }
+
+  for (const item of previewItems) {
+    const existingItems = await getGuidelineItemsByIds(item.approvedItemIds)
+    const existingMap = new Map(existingItems.map((i) => [i.id, i]))
+    if (existingMap.size !== item.approvedItemIds.length) {
+      throw new GuidelinePublishConflictError()
+    }
+
+    let publishedCount = 0
+    const expectedPoints: string[] = []
+    for (const id of item.approvedItemIds) {
+      const dbItem = existingMap.get(id)
+      if (!dbItem || dbItem.category !== item.category || dbItem.status !== 'approved') {
+        throw new GuidelinePublishConflictError()
+      }
+      if (dbItem.publishedAt !== null) {
+        publishedCount += 1
+      }
+      const trimmed = dbItem.textEl.trim()
+      if (!trimmed) {
+        throw new GuidelinePublishConflictError()
+      }
+      expectedPoints.push(`• ${trimmed}`)
+    }
+
+    if (expectedPoints.join('\n') !== item.noteEl.trim()) {
+      throw new GuidelinePublishConflictError()
+    }
+
+    if (publishedCount === item.approvedItemIds.length) {
+      continue
+    }
+    if (publishedCount > 0) {
+      throw new GuidelinePublishConflictError()
+    }
+
     const semanticText = `Заглавие: ${item.titleBg} / ${item.titleEl}\nКатегория: ${item.category}\nЛекар: ${doctorName}\nПрепоръки за пациента (BG):\n${item.noteBg}\nΙατρικές οδηγίες (EL):\n${item.noteEl}`
 
     let embedding: number[] | undefined
@@ -109,7 +174,8 @@ export const publishGuidelinesToPatient = async (
       console.warn(`Could not create embedding for published note (${item.category}):`, err)
     }
 
-    await createDoctorNote({
+    await publishCategoryGuidelineNote({
+      approvedItemIds: item.approvedItemIds,
       category: item.category,
       titleBg: item.titleBg,
       titleEl: item.titleEl,
@@ -119,10 +185,6 @@ export const publishGuidelinesToPatient = async (
       semanticText,
       embedding,
     })
-
-    if (item.approvedItemIds.length > 0) {
-      await markGuidelinesAsPublished(item.approvedItemIds)
-    }
   }
 
   revalidatePath('/doctor')
