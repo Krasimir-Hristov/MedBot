@@ -12,7 +12,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## 📌 1. Общо описание на проекта (Project Overview)
 
-**MedScan RAG** е двуезична медицинска RAG платформа (Български 🇧🇬 <-> Гръцки 🇬🇷), създадена специално за обработка, анализ и визуализация на онкологично досие от ~30 документа (епикризи, биопсии, хистологични доклади, образни изследвания и туморни маркери).
+**MedBot** е двуезична медицинска RAG платформа (Български 🇧🇬 <-> Гръцки 🇬🇷), създадена специално за обработка, анализ и визуализация на онкологично досие от ~30 документа (епикризи, биопсии, хистологични доклади, образни изследвания и туморни маркери).
 
 ### Основни цели:
 
@@ -42,9 +42,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - **ORM & Схема:** Drizzle ORM (`drizzle-orm`, `drizzle-kit`, `drizzle-zod`, `zod`)
 - **AI доставчик:** OpenRouter (`openai` SDK, `baseURL: "https://openrouter.ai/api/v1"`)
   - **Vision / OCR:** `google/gemini-3.8-flash` (1M токена контекст, безупречен OCR на български медицински бланки и таблици)
+    - Заявката подава `reasoning_effort: "low"` и `max_tokens: 16000`. Моделът е reasoning и без ограничение на нивото на мислене латентността при плътен гръцки скан достига ~57s (близо до лимита на маршрута). С `low` времето пада до ~40s без загуба на точност при OCR.
   - **Medical Chat & Reasoning:** `deepseek/deepseek-v4.1-flash` (двуезичен медицински анализ, силно логическо мислене, символична цена)
   - **Embeddings:** `openai/text-embedding-3-small` (1536 измерения в `pgvector`)
+    - ⚠️ **КРИТИЧНО:** Контекстният прозорец на модела е **8192 токена**, а не брой символи. Гръцкият текст изразходва ~1.15 токена/знак (10 000 знака ≈ 11 500 токена → грешка 400), кирилицата ~0.55, латиницата ~0.2–0.65. Затова семантичният текст **никога** не се реже по брой символи, а по токен бюджет чрез `buildBilingualSemanticText` (виж `src/features/admin/lib/ai-pipeline.ts`). `createMedicalEmbedding` има и предпазен повторен опит с намален бюджет при грешка за надвишен контекст.
   - **Audio / Диктовка:** Браузърен Web Speech API + `openai/whisper-large-v3`
+    - ⚠️ Транскрипцията минава **само** през `/api/v1/audio/transcriptions` (STT endpoint). Същият модел се отхвърля с грешка 400 при `/chat/completions`.
 
 ---
 
@@ -69,6 +72,23 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   - `note_bg`: Преведена бележка на български
   - `doctor_name`: Име на лекаря
   - `created_at`: Времева марка
+- **`dossier_summaries`**:
+  - `id`: serial (primary key)
+  - `content_el`: Клинично обобщение на досието на гръцки с кликаеми цитати [📄 ...](/api/doc/ID)
+  - `document_ids`: JSONB списък с ID-тата на документите
+  - `document_count`: Брой документи
+  - `truncated_doc_count`: Брой съкратени документи
+  - `model`: Модел за дълъг контекст (1M)
+  - `created_at`: Времева марка
+- **`patient_guideline_items`**:
+  - `id`: serial (primary key)
+  - `category`: Категория (diet, exercise, therapy, general)
+  - `text_el`: Текст на насоката на гръцки (редактируем от лекаря)
+  - `rationale_el`: Клинична обосновка с цитати (само за лекаря)
+  - `source`: Източник (ai или doctor)
+  - `status`: Статус на одобрение (pending, approved, rejected)
+  - `published_at`: Време на публикуване към пациента (в doctor_notes)
+  - `created_at` / `updated_at`: Времеви марки
 
 ---
 
@@ -79,6 +99,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 3. **Strict TypeScript:** Забранено използване на `any`. Винаги стриктни интерфейси или `unknown` с Type Guards.
 4. **Error Handling:** Задължителни `try/catch` блокове за всички асинхронни операции и API маршрути.
 5. **Mobile-First & Responsive:** Адаптивност за мобилни телефони и десктоп Split-Screen.
+6. **Token Budget, не брой символи:** Всеки вход към AI модел с ограничен контекст (embeddings, chat) се ограничава по **токени**, а не по `String.slice(0, N)`. Символите не са мярка за токени — гръцкият текст е ~1.15 токена/знак, кирилицата ~0.55, латиницата ~0.2–0.65. Използвай `estimateTokens` и `truncateToTokenBudget` от `src/features/admin/lib/ai-pipeline.ts`.
+7. **Никога не губи структурирани данни при съкращаване:** При съкращаване на дълъг текст клиничната глава (заглавие, маркери, стадий, резюме) се пази изцяло; съкращава се само `extracted_text`, като се пазят едновременно началото и краят му.
 
 ---
 
@@ -92,5 +114,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   - Next.js 16 `src/proxy.ts` за филтриране на заглавни части (Header scrubbing за CVE-2025-29927) и защита на защитените маршрути.
   - DAL слой и маршрут `src/app/api/doc/[id]/route.ts` за директно отваряне на сканираните документи с двоен слой защита.
 - [x] **СТЪПКА 2 (Завършена):** Админ дашборд `/admin` за компресия, OCR анализ и запис на документи.
-- [ ] **СТЪПКА 3:** Докторски портал `/doctor` (Split-Screen / Drawer, RAG чат с линкове към документи).
+- [x] **СТЪПКА 3 (Завършена):** Докторски портал `/doctor` (Split-Screen / Drawer, хибриден RAG чат с линкове към документи, сесии, гласова диктовка и качване на нови файлове).
 - [ ] **СТЪПКА 4:** Пациентски портал `/patient` и лекарски бележки.
