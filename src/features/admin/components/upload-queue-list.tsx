@@ -45,6 +45,7 @@ export const UploadQueueList: React.FC<UploadQueueListProps> = ({ items, onRetry
     too_large: u.errorTooLarge,
     too_large_pdf: u.errorTooLargePdf,
     too_many: u.errorTooMany,
+    duplicate: u.errorDuplicate,
     compress: u.errorCompress,
     network: u.errorNetwork,
     server: u.errorServer,
@@ -67,7 +68,8 @@ export const UploadQueueList: React.FC<UploadQueueListProps> = ({ items, onRetry
           item.errorCode !== 'unsupported' &&
           item.errorCode !== 'too_large' &&
           item.errorCode !== 'too_large_pdf' &&
-          item.errorCode !== 'too_many'
+          item.errorCode !== 'too_many' &&
+          item.errorCode !== 'duplicate'
         const stageText =
           item.stage === 'compressing' && isPdf ? u.stagePreparing : stageLabels[item.stage]
 

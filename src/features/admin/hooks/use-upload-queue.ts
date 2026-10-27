@@ -12,6 +12,7 @@ import {
 
 interface UseUploadQueueOptions {
   onDocumentCreated: (document: DocumentListItem) => void
+  existingDocuments?: DocumentListItem[]
 }
 
 interface UseUploadQueueResult {
@@ -26,18 +27,31 @@ interface UseUploadQueueResult {
  * Опашка за качване с контролирана паралелност (`UPLOAD_LIMITS.maxConcurrent`):
  * компресия/подготовка в браузъра -> POST към `/api/admin/upload` (OCR + вектор + запис).
  */
-export const useUploadQueue = ({ onDocumentCreated }: UseUploadQueueOptions): UseUploadQueueResult => {
+export const useUploadQueue = ({
+  onDocumentCreated,
+  existingDocuments = [],
+}: UseUploadQueueOptions): UseUploadQueueResult => {
   const [items, setItems] = useState<UploadQueueItem[]>([])
 
   const filesRef = useRef<Map<string, File>>(new Map())
   const pendingRef = useRef<string[]>([])
   const activeRef = useRef(0)
   const onCreatedRef = useRef(onDocumentCreated)
+  const existingDocsRef = useRef(existingDocuments)
+  const itemsRef = useRef(items)
   const pumpRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     onCreatedRef.current = onDocumentCreated
   }, [onDocumentCreated])
+
+  useEffect(() => {
+    existingDocsRef.current = existingDocuments
+  }, [existingDocuments])
+
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
 
   const patchItem = useCallback((id: string, patch: Partial<UploadQueueItem>) => {
     setItems((previous) => previous.map((item) => (item.id === id ? { ...item, ...patch } : item)))
@@ -127,8 +141,27 @@ export const useUploadQueue = ({ onDocumentCreated }: UseUploadQueueOptions): Us
       const accepted = files.slice(0, UPLOAD_LIMITS.maxFiles)
       const overflow = files.length - accepted.length
 
+      const existingNameSet = new Set(
+        existingDocsRef.current
+          .flatMap((doc) => [
+            doc.fileName?.trim().toLowerCase(),
+            doc.titleBg?.trim().toLowerCase(),
+            doc.titleEl?.trim().toLowerCase(),
+          ])
+          .filter((name): name is string => Boolean(name && name.length > 0))
+      )
+
+      const queueNameSet = new Set(
+        itemsRef.current
+          .filter((item) => item.stage !== 'error')
+          .map((item) => item.fileName.trim().toLowerCase())
+      )
+
+      const batchSeen = new Set<string>()
+
       const newItems: UploadQueueItem[] = accepted.map((file) => {
         const id = crypto.randomUUID()
+        const lowerName = file.name.trim().toLowerCase()
         const base: UploadQueueItem = {
           id,
           fileName: file.name,
@@ -136,6 +169,27 @@ export const useUploadQueue = ({ onDocumentCreated }: UseUploadQueueOptions): Us
           stage: 'queued',
           progress: 0,
         }
+
+        // 1. Проверка дали вече съществува в каченото досие
+        if (existingNameSet.has(lowerName)) {
+          return {
+            ...base,
+            stage: 'error',
+            errorCode: 'duplicate',
+            errorMessage: `Файл с име "${file.name}" вече е качен в досието.`,
+          }
+        }
+
+        // 2. Проверка дали се дублира в текущата селекция или активната опашка
+        if (queueNameSet.has(lowerName) || batchSeen.has(lowerName)) {
+          return {
+            ...base,
+            stage: 'error',
+            errorCode: 'duplicate',
+            errorMessage: `Файл с име "${file.name}" вече е добавен в опашката за качване.`,
+          }
+        }
+        batchSeen.add(lowerName)
 
         const kind = classifyUploadFile(file)
         if (!kind) {

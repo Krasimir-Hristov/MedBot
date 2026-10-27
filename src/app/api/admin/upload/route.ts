@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { NextRequest, NextResponse } from 'next/server'
-import { createMedicalDocument } from '@/features/documents'
+import { checkDocumentExistsByFileName, createMedicalDocument } from '@/features/documents'
 import { UPLOAD_LIMITS } from '@/features/admin/constants'
 import { isAdminSession } from '@/features/admin/lib/guard'
 import {
@@ -50,11 +50,21 @@ export const POST = async (request: NextRequest): Promise<NextResponse<UploadApi
     }
 
     const { fileName, fileBase64 } = parsed.data
+
+    // Проверка за вече качен файл със същото име в досието
+    const isDuplicate = await checkDocumentExistsByFileName(fileName)
+    if (isDuplicate) {
+      return jsonResponse(
+        { success: false, error: `Файл с име "${fileName}" вече е качен в досието.` },
+        409
+      )
+    }
+
     const mimeType = resolveUploadMimeType(fileBase64) ?? 'image/jpeg'
 
     // 3. Мултимодален OCR + структуриран анализ (изображение или PDF)
     const result = await extractMedicalDocumentData(fileBase64, fileName)
-    const metadata = toClinicalMetadata(result)
+    const metadata = toClinicalMetadata(result, fileName)
 
     // 4. Двуезичен семантичен текст и 1536d вектор
     const semanticText = buildBilingualSemanticText({

@@ -255,6 +255,14 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                       </dd>
                     </div>
                   )}
+                  {detailState.data.fileName && (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-slate-500">Файл:</dt>
+                      <dd className="text-right font-clinical-mono text-slate-700">
+                        {detailState.data.fileName}
+                      </dd>
+                    </div>
+                  )}
                   {detailState.data.keyMarkers.length > 0 && (
                     <div className="pt-1">
                       <dt className="mb-1 text-slate-500">{p.markers}:</dt>

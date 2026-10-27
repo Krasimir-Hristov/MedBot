@@ -65,21 +65,26 @@ const parseClinicalMetadata = (raw: unknown): DocumentClinicalMetadata => {
     staging: toOptionalString(source.staging),
     keyMarkers: toStringArray(source.keyMarkers),
     criticalAlerts: toStringArray(source.criticalAlerts),
+    fileName: toOptionalString(source.fileName),
   }
 }
 
-const toListItem = (row: ListRow): DocumentListItem => ({
-  id: row.id,
-  titleBg: row.titleBg,
-  titleEl: row.titleEl,
-  docDate: row.docDate,
-  category: row.category,
-  summaryEl: row.summaryEl,
-  keyMarkers: parseClinicalMetadata(row.metadata).keyMarkers,
-  isVectorized: Boolean(row.isVectorized),
-  mimeType: row.mimeType,
-  createdAt: row.createdAt.toISOString(),
-})
+const toListItem = (row: ListRow): DocumentListItem => {
+  const meta = parseClinicalMetadata(row.metadata)
+  return {
+    id: row.id,
+    titleBg: row.titleBg,
+    titleEl: row.titleEl,
+    docDate: row.docDate,
+    category: row.category,
+    summaryEl: row.summaryEl,
+    keyMarkers: meta.keyMarkers,
+    isVectorized: Boolean(row.isVectorized),
+    mimeType: row.mimeType,
+    createdAt: row.createdAt.toISOString(),
+    fileName: meta.fileName,
+  }
+}
 
 /**
  * Извлича бинарните данни и mime-type на документ по ID.
@@ -233,6 +238,31 @@ export const deleteMedicalDocument = async (documentId: number): Promise<boolean
   } catch (error) {
     console.error(`Error deleting medical document ${documentId}:`, error)
     throw new Error('Грешка при изтриване на документа.')
+  }
+}
+
+/**
+ * Проверява дали вече съществува документ със същото име на файл (или идентично заглавие).
+ */
+export const checkDocumentExistsByFileName = async (fileName: string): Promise<boolean> => {
+  try {
+    const trimmed = fileName.trim().toLowerCase()
+    if (!trimmed) {
+      return false
+    }
+
+    const rows = await db
+      .select({ id: medicalDocuments.id })
+      .from(medicalDocuments)
+      .where(
+        sql`lower(${medicalDocuments.metadata}->>'fileName') = ${trimmed} OR lower(${medicalDocuments.titleBg}) = ${trimmed} OR lower(${medicalDocuments.titleEl}) = ${trimmed}`
+      )
+      .limit(1)
+
+    return rows.length > 0
+  } catch (error) {
+    console.error('Error checking document existence by fileName:', error)
+    return false
   }
 }
 

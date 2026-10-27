@@ -63,6 +63,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const queue = useUploadQueue({
     onDocumentCreated: handleDocumentCreated,
+    existingDocuments: documents,
   })
 
   return (

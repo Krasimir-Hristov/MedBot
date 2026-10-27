@@ -22,6 +22,7 @@ export interface DocumentClinicalMetadata {
   staging?: string
   keyMarkers: string[]
   criticalAlerts: string[]
+  fileName?: string
 }
 
 /**
@@ -39,6 +40,7 @@ export interface DocumentListItem {
   isVectorized: boolean
   mimeType: string
   createdAt: string
+  fileName?: string
 }
 
 export type DocumentCatalogItem = DocumentListItem

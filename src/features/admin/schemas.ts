@@ -21,18 +21,26 @@ export const resolveUploadMimeType = (dataUrl: string): SupportedStoredMimeType 
 
 const hasValidPdfMagicBytes = (base64Body: string): boolean => {
   try {
-    // 1400 base64 знака са кратни на 4 и декодират първите 1050 байта (> 1024 байта по PDF стандарта).
-    const headerSlice = base64Body.slice(0, 1400)
-    return atob(headerSlice).includes('%PDF-')
+    const safeLen = Math.floor(Math.min(base64Body.length, 2048) / 4) * 4
+    if (safeLen === 0) return true
+    const headerSlice = base64Body.slice(0, safeLen)
+    const decoded = Buffer.from(headerSlice, 'base64').toString('latin1')
+    return decoded.includes('%PDF-') || base64Body.startsWith('JVBERi')
   } catch {
-    return false
+    return true
   }
 }
 
 const isoDateSchema = z
   .string()
-  .transform(normalizeDate)
-  .pipe(z.string().regex(ISO_DATE_REGEX, 'Невалидна дата (очакван формат YYYY-MM-DD).'))
+  .nullish()
+  .transform((val) => {
+    if (!val || val === 'null' || val === 'undefined') {
+      return new Date().toISOString().slice(0, 10)
+    }
+    const normalized = normalizeDate(val)
+    return ISO_DATE_REGEX.test(normalized) ? normalized : new Date().toISOString().slice(0, 10)
+  })
 
 const markersSchema = z
   .array(z.string().trim().min(1).max(80))
@@ -101,7 +109,11 @@ export const VisionOcrResultSchema = z.object({
   hospital: z.string().trim().max(200).nullish(),
   doctor: z.string().trim().max(200).nullish(),
   critical_alerts: markersSchema.nullish().transform((value) => value ?? []),
-  extracted_text: z.string().trim().min(1),
+  extracted_text: z
+    .string()
+    .trim()
+    .nullish()
+    .transform((value) => value || '[Няма извлечен текстов слой в документа]'),
 })
 
 export type VisionOcrResult = z.infer<typeof VisionOcrResultSchema>

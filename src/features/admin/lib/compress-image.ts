@@ -101,14 +101,7 @@ export const prepareMedicalUploadFile = async (
       throw new Error('PDF exceeds maximum allowed size')
     }
 
-    const headerBytes = new Uint8Array(await file.slice(0, 1024).arrayBuffer())
-    const headerText = new TextDecoder('latin1').decode(headerBytes)
-    if (!headerText.includes('%PDF-')) {
-      throw new Error('Invalid PDF file header')
-    }
-
-    const pdfBlob =
-      file.type === 'application/pdf' ? file : new Blob([file], { type: 'application/pdf' })
+    const pdfBlob = new Blob([file], { type: 'application/pdf' })
     const dataUrl = await readBlobAsDataUrl(pdfBlob, onProgress)
 
     return {

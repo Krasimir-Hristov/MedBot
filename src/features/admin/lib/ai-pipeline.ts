@@ -332,12 +332,17 @@ export const createMedicalEmbedding = async (semanticText: string): Promise<numb
 }
 
 /**
- * Конструира клиничните метаданни за JSONB колоната от резултата на модела.
+ * Конструира клиничните метаданни за JSONB колоната от резултата на модела,
+ * включително оригиналното име на качения файл.
  */
-export const toClinicalMetadata = (result: VisionOcrResult): DocumentClinicalMetadata => ({
+export const toClinicalMetadata = (
+  result: VisionOcrResult,
+  fileName?: string
+): DocumentClinicalMetadata => ({
   hospital: result.hospital ?? undefined,
   doctor: result.doctor ?? undefined,
   staging: result.staging ?? undefined,
   keyMarkers: result.key_markers,
   criticalAlerts: result.critical_alerts,
+  fileName: fileName?.trim() || undefined,
 })

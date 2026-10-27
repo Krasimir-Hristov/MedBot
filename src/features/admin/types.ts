@@ -7,6 +7,7 @@ export type UploadErrorCode =
   | 'too_large'
   | 'too_large_pdf'
   | 'too_many'
+  | 'duplicate'
   | 'compress'
   | 'network'
   | 'server'

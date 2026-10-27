@@ -109,6 +109,11 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                         )}
                       </span>
                       <span className="line-clamp-1 text-xs italic text-slate-500">{secondaryTitle}</span>
+                      {doc.fileName && (
+                        <span className="line-clamp-1 font-clinical-mono text-[10px] text-slate-400">
+                          {doc.fileName}
+                        </span>
+                      )}
                     </button>
                   </td>
                   <td className="px-4 py-3 align-top whitespace-nowrap">
@@ -217,6 +222,11 @@ export const DocumentsTable: React.FC<DocumentsTableProps> = ({
                   )}
                 </span>
                 <span className="text-xs italic text-slate-500">{secondaryTitle}</span>
+                {doc.fileName && (
+                  <span className="line-clamp-1 font-clinical-mono text-[10px] text-slate-400">
+                    {doc.fileName}
+                  </span>
+                )}
               </button>
 
               {doc.keyMarkers.length > 0 && <div>{renderMarkers(doc.keyMarkers)}</div>}
