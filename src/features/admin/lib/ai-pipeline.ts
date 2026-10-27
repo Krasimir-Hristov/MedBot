@@ -99,12 +99,12 @@ export const truncateToTokenBudget = (text: string, budget: number): string => {
  * Грешка от AI конвейера със съобщение, безопасно за показване на клиента.
  */
 export class PipelineError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number = 502
-  ) {
+  public readonly status: number
+
+  constructor(message: string, status: number = 502) {
     super(message)
     this.name = 'PipelineError'
+    this.status = status
   }
 }
 

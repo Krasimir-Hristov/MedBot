@@ -43,8 +43,8 @@ const isoDateSchema = z
   })
 
 const markersSchema = z
-  .array(z.string().trim().min(1).max(80))
-  .max(20)
+  .array(z.string().trim().min(1).max(200))
+  .max(30)
 
 /**
  * Тяло на заявката към `/api/admin/upload`.
@@ -96,25 +96,114 @@ export const UploadPayloadSchema = z
 export type UploadPayload = z.infer<typeof UploadPayloadSchema>
 
 /**
- * Очакваният JSON от мултимодалния модел (Gemini). Допуска `null` за опционалните полета.
+ * Очакваният JSON от мултимодалния модел (Gemini).
+ * Устойчив на различни форматирания, null стойности и по-дълги медицински описания.
  */
-export const VisionOcrResultSchema = z.object({
-  title_bg: z.string().trim().min(1).max(300),
-  title_el: z.string().trim().min(1).max(300),
-  doc_date: isoDateSchema,
-  category: z.string().transform(normalizeCategory).pipe(z.enum(DOCUMENT_CATEGORIES)),
-  summary_el: z.string().trim().min(1).max(3000),
-  key_markers: markersSchema.nullish().transform((value) => value ?? []),
-  staging: z.string().trim().max(200).nullish(),
-  hospital: z.string().trim().max(200).nullish(),
-  doctor: z.string().trim().max(200).nullish(),
-  critical_alerts: markersSchema.nullish().transform((value) => value ?? []),
-  extracted_text: z
-    .string()
-    .trim()
-    .nullish()
-    .transform((value) => value || '[Няма извлечен текстов слой в документа]'),
-})
+export const VisionOcrResultSchema = z
+  .object({
+    title_bg: z
+      .string()
+      .nullish()
+      .transform((val) => val?.trim() || ''),
+    title_el: z
+      .string()
+      .nullish()
+      .transform((val) => val?.trim() || ''),
+    doc_date: isoDateSchema,
+    category: z
+      .string()
+      .nullish()
+      .transform((val) => normalizeCategory(val || 'Други')),
+    summary_el: z
+      .string()
+      .nullish()
+      .transform((val) => (val?.trim() || 'Δεν υπάρχει διαθέσιμη περίληψη.').slice(0, 4000)),
+    key_markers: z
+      .unknown()
+      .nullish()
+      .transform((val) => {
+        if (Array.isArray(val)) {
+          return val
+            .map((item) =>
+              typeof item === 'string'
+                ? item.trim()
+                : typeof item === 'object' && item !== null
+                ? JSON.stringify(item)
+                : String(item ?? '')
+            )
+            .filter((s) => s.length > 0)
+            .slice(0, 30)
+            .map((s) => s.slice(0, 150))
+        }
+        if (typeof val === 'string' && val.trim().length > 0) {
+          return [val.trim().slice(0, 150)]
+        }
+        return []
+      }),
+    staging: z
+      .unknown()
+      .nullish()
+      .transform((val) => {
+        if (!val) return null
+        if (typeof val === 'string') return val.trim().slice(0, 200) || null
+        if (typeof val === 'object') return JSON.stringify(val).slice(0, 200)
+        return String(val).slice(0, 200)
+      }),
+    hospital: z
+      .unknown()
+      .nullish()
+      .transform((val) => {
+        if (!val) return null
+        return typeof val === 'string' ? val.trim().slice(0, 250) || null : String(val).slice(0, 250)
+      }),
+    doctor: z
+      .unknown()
+      .nullish()
+      .transform((val) => {
+        if (!val) return null
+        return typeof val === 'string' ? val.trim().slice(0, 250) || null : String(val).slice(0, 250)
+      }),
+    critical_alerts: z
+      .unknown()
+      .nullish()
+      .transform((val) => {
+        if (Array.isArray(val)) {
+          return val
+            .map((item) =>
+              typeof item === 'string'
+                ? item.trim()
+                : typeof item === 'object' && item !== null
+                ? JSON.stringify(item)
+                : String(item ?? '')
+            )
+            .filter((s) => s.length > 0)
+            .slice(0, 20)
+            .map((s) => s.slice(0, 300))
+        }
+        if (typeof val === 'string' && val.trim().length > 0) {
+          return [val.trim().slice(0, 300)]
+        }
+        return []
+      }),
+    extracted_text: z
+      .unknown()
+      .nullish()
+      .transform((val) => {
+        if (typeof val === 'string' && val.trim().length > 0) {
+          return val.trim()
+        }
+        return '[Няма извлечен текстов слой в документа]'
+      }),
+  })
+  .transform((data) => {
+    const titleBg = data.title_bg || data.title_el || 'Медицински документ'
+    const titleEl = data.title_el || data.title_bg || 'Ιατρικό έγγραφο'
+    return {
+      ...data,
+      title_bg: titleBg.slice(0, 300),
+      title_el: titleEl.slice(0, 300),
+    }
+  })
 
 export type VisionOcrResult = z.infer<typeof VisionOcrResultSchema>
 
