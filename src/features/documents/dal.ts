@@ -87,6 +87,25 @@ const toListItem = (row: ListRow): DocumentListItem => {
 }
 
 /**
+ * Изпълнява асинхронна операция към Neon с автоматичен retry
+ * при кратки мрежови прекъсвания или студен старт (cold-start) на compute ендпойнта.
+ */
+const withDbRetry = async <T>(operation: () => Promise<T>, maxRetries = 2, delayMs = 400): Promise<T> => {
+  let attempt = 0
+  while (true) {
+    try {
+      return await operation()
+    } catch (error) {
+      attempt++
+      if (attempt > maxRetries) {
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs * attempt))
+    }
+  }
+}
+
+/**
  * Извлича бинарните данни и mime-type на документ по ID.
  * Оптимизирано да връща само нужните полета (без тежки вектори и текстове),
  * с цел минимален мрежов трафик (Egress optimization).
@@ -95,16 +114,18 @@ export const getDocumentBinaryById = async (
   documentId: number
 ): Promise<DocumentBinaryData | null> => {
   try {
-    const result = await db
-      .select({
-        id: medicalDocuments.id,
-        fileBase64: medicalDocuments.fileBase64,
-        mimeType: medicalDocuments.mimeType,
-        titleBg: medicalDocuments.titleBg,
-      })
-      .from(medicalDocuments)
-      .where(eq(medicalDocuments.id, documentId))
-      .limit(1)
+    const result = await withDbRetry(() =>
+      db
+        .select({
+          id: medicalDocuments.id,
+          fileBase64: medicalDocuments.fileBase64,
+          mimeType: medicalDocuments.mimeType,
+          titleBg: medicalDocuments.titleBg,
+        })
+        .from(medicalDocuments)
+        .where(eq(medicalDocuments.id, documentId))
+        .limit(1)
+    )
 
     if (!result || result.length === 0) {
       return null
@@ -122,10 +143,12 @@ export const getDocumentBinaryById = async (
  */
 export const getDocumentsList = async (): Promise<DocumentListItem[]> => {
   try {
-    const rows = await db
-      .select(listColumns)
-      .from(medicalDocuments)
-      .orderBy(desc(medicalDocuments.docDate), desc(medicalDocuments.id))
+    const rows = await withDbRetry(() =>
+      db
+        .select(listColumns)
+        .from(medicalDocuments)
+        .orderBy(desc(medicalDocuments.docDate), desc(medicalDocuments.id))
+    )
 
     return rows.map(toListItem)
   } catch (error) {
@@ -141,11 +164,13 @@ export const getDocumentDetailById = async (
   documentId: number
 ): Promise<DocumentDetailItem | null> => {
   try {
-    const rows = await db
-      .select({ ...listColumns, extractedText: medicalDocuments.extractedText })
-      .from(medicalDocuments)
-      .where(eq(medicalDocuments.id, documentId))
-      .limit(1)
+    const rows = await withDbRetry(() =>
+      db
+        .select({ ...listColumns, extractedText: medicalDocuments.extractedText })
+        .from(medicalDocuments)
+        .where(eq(medicalDocuments.id, documentId))
+        .limit(1)
+    )
 
     const row = rows[0]
     if (!row) {
@@ -251,13 +276,15 @@ export const checkDocumentExistsByFileName = async (fileName: string): Promise<b
       return false
     }
 
-    const rows = await db
-      .select({ id: medicalDocuments.id })
-      .from(medicalDocuments)
-      .where(
-        sql`lower(${medicalDocuments.metadata}->>'fileName') = ${trimmed} OR lower(${medicalDocuments.titleBg}) = ${trimmed} OR lower(${medicalDocuments.titleEl}) = ${trimmed}`
-      )
-      .limit(1)
+    const rows = await withDbRetry(() =>
+      db
+        .select({ id: medicalDocuments.id })
+        .from(medicalDocuments)
+        .where(
+          sql`lower(${medicalDocuments.metadata}->>'fileName') = ${trimmed} OR lower(${medicalDocuments.titleBg}) = ${trimmed} OR lower(${medicalDocuments.titleEl}) = ${trimmed}`
+        )
+        .limit(1)
+    )
 
     return rows.length > 0
   } catch (error) {

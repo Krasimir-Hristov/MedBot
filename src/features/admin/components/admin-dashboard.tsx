@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { AlertTriangle } from 'lucide-react'
 import { useTranslation } from '@/features/i18n'
@@ -37,10 +37,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const { t } = useTranslation()
   const [documents, setDocuments] = useState<DocumentListItem[]>(initialDocuments)
+  const [loadError, setLoadError] = useState<boolean>(hasLoadError)
 
   const [previewDoc, setPreviewDoc] = useState<DocumentListItem | null>(null)
   const [editingDoc, setEditingDoc] = useState<DocumentListItem | null>(null)
   const [deletingDoc, setDeletingDoc] = useState<DocumentListItem | null>(null)
+
+  // Самовъзстановяване (Client-side self-healing):
+  // При студен старт на базата данни или временен SSR срив, клиентски опитваме да извлечем списъка
+  useEffect(() => {
+    if (loadError || documents.length === 0) {
+      let isMounted = true
+      fetch('/api/doctor/documents')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: unknown) => {
+          if (!isMounted) return
+          if (
+            typeof data === 'object' &&
+            data !== null &&
+            'documents' in data &&
+            Array.isArray(data.documents) &&
+            data.documents.length > 0
+          ) {
+            setDocuments(data.documents as DocumentListItem[])
+            setLoadError(false)
+          }
+        })
+        .catch(() => {})
+
+      return () => {
+        isMounted = false
+      }
+    }
+  }, [loadError, documents.length])
 
   const handleDocumentCreated = useCallback((newDoc: DocumentListItem) => {
     setDocuments((previous) => {
@@ -71,16 +100,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <AdminHeader />
 
       <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-5 px-4 py-5 sm:px-6">
-        {hasLoadError && (
+        {loadError && (
           <aside
             role="alert"
-            className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-xs"
+            className="flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-xs"
           >
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" aria-hidden="true" />
-            <div>
-              <h2 className="text-sm font-semibold">{t.admin.loadErrorTitle}</h2>
-              <p className="mt-0.5 text-xs text-amber-700">{t.admin.loadErrorDesc}</p>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" aria-hidden="true" />
+              <div>
+                <h2 className="text-sm font-semibold">{t.admin.loadErrorTitle}</h2>
+                <p className="mt-0.5 text-xs text-amber-700">{t.admin.loadErrorDesc}</p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              aria-label={t.common.refresh}
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors shrink-0 shadow-xs cursor-pointer"
+            >
+              {t.common.refresh}
+            </button>
           </aside>
         )}
 
