@@ -69,6 +69,7 @@ describe('Authentication Security - HMAC PIN, JWT Session & Brute-Force Defense'
 
       const wrongKeyToken = await new SignJWT({ role: 'admin', createdAt: 1000 })
         .setProtectedHeader({ alg: 'HS256' })
+        .setExpirationTime('1h')
         .sign(new TextEncoder().encode('wrong-secret-key-at-least-32-characters-long!!'))
       expect(await verifySessionToken(wrongKeyToken)).toBeNull()
 
