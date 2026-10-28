@@ -23,6 +23,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
    - Вграждане на кликаеми цитати към документи във формат `[📄 Заглавие (Дата)](/api/doc/ID)`.
    - Гласово въвеждане на лекарски бележки и въпроси (Web Speech API `el-GR` / Whisper) или писане с клавиатура.
    - Възможност лекарят директно да качва файлове (PDF / снимки) с терапии, предписания за диета, упражнения и нови изследвания. AI автоматично ги анализира, векторизира и превежда на български за пациента.
+   - **Обобщение на цялото досие** с модел от 1M контекст (8 клинични глави на гръцки, задължителни цитати, засичане на остаряване при нови/изтрити документи).
+   - **Насоки за пациента (чернови):** AI предлага точки по категории → лекар ги редактира/одобрява → преглед на български превод → транзакционно публикуване в `doctor_notes`.
+   - **7 бързи въпроса** (dropdown) по становището на д-р Анастасиос Вагионас от 19.10.2026 г.
+   - **Преоразмеряващи се панели** (chat / досие) с мишка, двоен клик за reset и клавиатурни стъпки.
 2. **За пациента и семейството (Български портал `/patient`):**
    - Ултра изчистен Mobile-First интерфейс на български език с едър и лесен за четене шрифт.
    - Последната преведена препоръка и качени терапевтични насоки от гръцкия лекар стоят най-отгоре.
@@ -107,12 +111,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## 📍 5. Какво правим в момента (Текущ статус)
 
 - [x] **Инициализация:** Инсталиран пълен тек стек (Next.js 16, Tailwind v4, Drizzle, Neon, OpenRouter, Zod).
-- [x] **База данни:** Свързан Neon PostgreSQL, активиран `pgvector`, приложена Drizzle схема с `medical_documents` и `doctor_notes`.
-- [x] **AI & Конфигурация:** Създаден единствен [.env](file:///d:/myProjects/medbot/.env) с актуалните най-мощни и икономични модели, създаден OpenRouter клиент [src/lib/openrouter.ts](file:///d:/myProjects/medbot/src/lib/openrouter.ts).
+- [x] **База данни:** Свързан Neon PostgreSQL, активиран `pgvector`, приложена Drizzle схема с 6 таблици (`medical_documents`, `doctor_notes`, `chat_sessions`, `chat_messages`, `dossier_summaries`, `patient_guideline_items`).
+- [x] **AI & Конфигурация:** Единствен [.env](file:///d:/myProjects/medbot/.env) с актуалните най-мощни и икономични модели, OpenRouter клиент [src/lib/openrouter.ts](file:///d:/myProjects/medbot/src/lib/openrouter.ts).
 - [x] **СТЪПКА 1 (Завършена):**
-  - Начален екран `/` с форма за ПИН код, `jose` JWT криптирана сесия и пренасочване към `/admin`, `/doctor`, `/patient`.
+  - Начален екран `/` с форма за ПИН код, `jose` JWT сесия и пренасочване към `/admin`, `/doctor`, `/patient`.
   - Next.js 16 `src/proxy.ts` за филтриране на заглавни части (Header scrubbing за CVE-2025-29927) и защита на защитените маршрути.
   - DAL слой и маршрут `src/app/api/doc/[id]/route.ts` за директно отваряне на сканираните документи с двоен слой защита.
 - [x] **СТЪПКА 2 (Завършена):** Админ дашборд `/admin` за компресия, OCR анализ и запис на документи.
 - [x] **СТЪПКА 3 (Завършена):** Докторски портал `/doctor` (Split-Screen / Drawer, хибриден RAG чат с линкове към документи, сесии, гласова диктовка и качване на нови файлове).
-- [ ] **СТЪПКА 4:** Пациентски портал `/patient` и лекарски бележки.
+- [x] **СТЪПКА 4 (Завършена):** Пациентски портал `/patient`, лекарски бележки с прикачени файлове и хибриден гласов модул (Web Speech API + Whisper).
+- [x] **СТЪПКА 5 (Завършена):** AI обобщение на цялото досие (`dossier_summaries`), чернови → преглед → публикуване на насоки за пациента (`patient_guideline_items`), 7 бързи въпроса по становището на д-р Вагионас, преоразмеряващи се панели и пълна двуезичност.
+- [x] **Тестове и документация:** 25 Vitest файла / 134 теста; [docs/architecture.md](file:///d:/myProjects/medbot/docs/architecture.md), [docs/api.md](file:///d:/myProjects/medbot/docs/api.md), [docs/database.md](file:///d:/myProjects/medbot/docs/database.md), [docs/testing.md](file:///d:/myProjects/medbot/docs/testing.md).
+- [ ] **Следващи стъпки:** Вижте [ROADMAP.md](file:///d:/myProjects/medbot/ROADMAP.md) – Redis rate limiter, Playwright E2E, CI pipeline.

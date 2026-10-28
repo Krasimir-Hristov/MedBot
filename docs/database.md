@@ -1,6 +1,6 @@
-# 🗄️ Документация на базата данни: MedScan RAG
+# 🗄️ Документация на базата данни: MedBot RAG
 
-Тази документация описва архитектурата, таблиците, векторните индекси и потока на данни в базата данни на **MedScan RAG** (Neon Serverless PostgreSQL).
+Тази документация описва архитектурата, таблиците, векторните индекси и потока на данни в базата данни на **MedBot** (в интерфейса – *MedScan RAG*), работеща на Neon Serverless PostgreSQL.
 
 ---
 
@@ -27,14 +27,14 @@
 | **`title_bg`** | `TEXT NOT NULL` | Заглавие на документа на български език (напр. *"Епикриза от операция"*). |
 | **`title_el`** | `TEXT NOT NULL` | Заглавие на документа на гръцки език (напр. *"Εξιτήριο Χειρουργείου"*). |
 | **`doc_date`** | `TEXT NOT NULL` | Дата на провеждане на изследването / документа (формат `YYYY-MM-DD`). |
-| **`category`** | `TEXT NOT NULL` | Категория: *Хистология*, *Образна диагностика*, *Туморни маркери*, *Епикризи*. |
+| **`category`** | `TEXT NOT NULL` | Категория: *Хистология*, *Образна диагностика*, *Туморни маркери*, *Епикризи*, *Лабораторни изследвания*, *Други*. |
 | **`summary_el`** | `TEXT NOT NULL` | Кратко клинично резюме на гръцки език, предназначено за лекуващия гръцки лекар. |
-| **`metadata`** | `JSONB` | Допълнителни структурирани параметри: болница, лекар, референтни граници, стадий и др. |
+| **`metadata`** | `JSONB` | Допълнителни структурирани параметри: `hospital`, `doctor`, `staging`, `keyMarkers[]`, `criticalAlerts[]`, `fileName`. Парсва се безопасно през `parseClinicalMetadata` (никога не се доверяваме на `unknown`). |
 | **`extracted_text`**| `TEXT NOT NULL` | Пълен текст от документа, извлечен чрез мултимодалния модел (OCR). |
 | **`semantic_text`** | `TEXT` | Двуезичен обобщен текст, използван за генериране на семантичния вектор. |
 | **`embedding`** | `vector(1536)` | Вектор от 1536 измерения, генериран от `openai/text-embedding-3-small`. |
-| **`file_base64`** | `TEXT NOT NULL` | Base64 кодирано JPEG изображение на сканирания документ. |
-| **`mime_type`** | `TEXT NOT NULL` | MIME тип (`image/jpeg`). |
+| **`file_base64`** | `TEXT NOT NULL` | Base64 кодиран файл – компресиран JPEG (≤1600px, ~350KB) или оригинален PDF (≤10 MB). |
+| **`mime_type`** | `TEXT NOT NULL` | MIME тип (`image/jpeg` по подразбиране, или `application/pdf`). |
 | **`created_at`** | `TIMESTAMPTZ` | Времева марка на качване в системата. |
 
 ---
@@ -124,12 +124,14 @@ USING hnsw (embedding vector_cosine_ops);
 
 ## 5. Сигурност и Row Level Security (RLS)
 
-- **RLS е активиран на ниво PostgreSQL за всичките 4 таблици:**
+- **RLS е активиран на ниво PostgreSQL за всичките 6 таблици:**
   ```sql
   ALTER TABLE medical_documents ENABLE ROW LEVEL SECURITY;
   ALTER TABLE doctor_notes ENABLE ROW LEVEL SECURITY;
   ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
   ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE dossier_summaries ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE patient_guideline_items ENABLE ROW LEVEL SECURITY;
   ```
   Приложението се свързва с ролята `neondb_owner`, която има атрибут `BYPASSRLS`, затова RLS **не блокира** нормалната работа на сървърния код. Смисълът е защита в дълбочина: всяка бъдеща не-собственик роля (напр. read-only аналитична роля) не може да чете или пише пациентски данни без изрично дефинирани политики.
 - **Защита в дълбочина (Defense in Depth):**
